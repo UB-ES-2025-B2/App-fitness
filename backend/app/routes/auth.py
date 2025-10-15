@@ -46,15 +46,48 @@ def login():
 
     token = jwt.encode({
         "user_id": user.id,
+        "type": "access",
         "exp": datetime.utcnow() + timedelta(hours=1) 
+    }, current_app.config['SECRET_KEY'], algorithm="HS256")
+    refresh_token = jwt.encode({
+        "user_id": user.id,
+        "type": "refresh",
+        "exp": datetime.utcnow() + timedelta(days=7)
     }, current_app.config['SECRET_KEY'], algorithm="HS256")
 
     return jsonify({
         "message": "Inicio de sesión correcto",
-        "token": token,
+        "access_token": token,
+        "refresh_token": refresh_token,
         "user": {
             "id": user.id,
             "name": user.name,
             "email": user.email
         }
     }), 200
+
+@bp.route('/refresh', methods=['POST'])
+def refresh():
+    data = request.get_json()
+    refresh_token = data.get('refresh_token')
+
+    if not refresh_token:
+        return jsonify({"error": "Token de refresco faltante"}), 401
+
+    try:
+        decoded = jwt.decode(refresh_token, current_app.config['SECRET_KEY'], algorithms=["HS256"])
+        if decoded.get("type") != "refresh":
+            return jsonify({"error": "Token no es de tipo refresh"}), 401
+        user_id = decoded.get("user_id")
+
+        new_access_token = jwt.encode({
+            "user_id": user_id,
+            "exp": datetime.utcnow() + timedelta(hours=1)
+        }, current_app.config['SECRET_KEY'], algorithm="HS256")
+
+        return jsonify({"access_token": new_access_token}), 200
+
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "El refresh token ha caducado"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Token inválido"}), 401
