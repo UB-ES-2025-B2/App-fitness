@@ -15,6 +15,10 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)  
 
+    from .routes import users, auth
+    app.register_blueprint(users.bp)
+    app.register_blueprint(auth.bp)
+
 
 
     return app
