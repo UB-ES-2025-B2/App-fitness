@@ -1,7 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 3, "column": 0}, "map": {"version":3,"sources":[],"names":[],"mappings":"","debugId":null}},
-    {"offset": {"line": 15, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/magic/Desktop/Uni/ES/fitness-app/src/app/page.tsx"],"sourcesContent":["// src/app/page.tsx\nimport Feed from \"@/components/Feed\";\n\nexport default function HomePage() {\n  return (\n    <main className=\"min-h-screen bg-gray-100\">\n      <Feed />\n    </main>\n  );\n}\n"],"names":[],"mappings":"AAAA,mBAAmB;;;;;;;;;;;;;AAGJ,SAAS;IACtB,qBACE,8OAAC;QAAK,WAAU;kBACd,cAAA,8OAAC;;;;;;;;;;AAGP","debugId":null}}]
-}
