@@ -22,41 +22,34 @@ export default function Feed() {
   const { topic, setTopic } = useTopic();
 
   useEffect(() => {
-    // Simulamos carga de publicaciones (mock)
-    const timer = setTimeout(() => {
-      setPosts([
-        {
-          id: 1,
-          user: "LauraFit",
-          topic: "Montaña",
-          text: "Ruta increíble hoy 🌄",
-          image: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e",
-        },
-        {
-          id: 2,
-          user: "MaxRunner",
-          topic: "Fútbol",
-          text: "Entrenamiento de velocidad 💨",
-          image: "https://images.unsplash.com/photo-1605296867304-46d5465a13f1",
-        },
-      ]);
+  const fetchPosts = async () => {
+    try {
+      const res = await fetch("http://127.0.0.1:5000/api/posts");
+      if (!res.ok) throw new Error("Error cargando posts");
+      const data: Post[] = await res.json();
+      setPosts(data);
+      setHasMore(false); // de momento no hay paginación
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
       setLoading(false);
-      setHasMore(false); // <- en este mock no hay más páginas
-    }, 1500);
+    }
+  };
 
-    // Suscripción a nuevos posts
-    const onNewPost = (e: Event) => {
-      const detail = (e as CustomEvent<any>).detail;
-      setPosts((prev) => [detail, ...prev]);
-      // Si más adelante se implementa paginación, aquí no se toca hasMore.
-    };
-    window.addEventListener("new-post", onNewPost as EventListener);
+  fetchPosts();
 
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("new-post", onNewPost as EventListener);
-    };
-  }, []);
+  // Suscripción a nuevos posts
+  const onNewPost = (e: Event) => {
+    const detail = (e as CustomEvent<any>).detail;
+    setPosts((prev) => [detail, ...prev]);
+  };
+  window.addEventListener("new-post", onNewPost as EventListener);
+
+  return () => {
+    window.removeEventListener("new-post", onNewPost as EventListener);
+  };
+}, []);
+
 
   if (loading) return <p className="text-center mt-10">Cargando publicaciones...</p>;
   if (error) return <p className="text-center text-red-500 mt-10">{error}</p>;
