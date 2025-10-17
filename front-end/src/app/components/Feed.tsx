@@ -1,7 +1,8 @@
 // src/components/Feed.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Topic, useTopic } from "./TopicContext";
 
 type Post = {
   id: number;
@@ -11,14 +12,18 @@ type Post = {
   image?: string;
 };
 
+const TOPICS: Topic[] = ["Todos", "Fútbol", "Básquet", "Montaña"];
+
 export default function Feed() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true); // <- controla si hay más contenido
+  const { topic, setTopic } = useTopic();
 
   useEffect(() => {
     // Simulamos carga de publicaciones (mock)
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setPosts([
         {
           id: 1,
@@ -36,7 +41,21 @@ export default function Feed() {
         },
       ]);
       setLoading(false);
+      setHasMore(false); // <- en este mock no hay más páginas
     }, 1500);
+
+    // Suscripción a nuevos posts
+    const onNewPost = (e: Event) => {
+      const detail = (e as CustomEvent<any>).detail;
+      setPosts((prev) => [detail, ...prev]);
+      // Si más adelante se implementa paginación, aquí no se toca hasMore.
+    };
+    window.addEventListener("new-post", onNewPost as EventListener);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("new-post", onNewPost as EventListener);
+    };
   }, []);
 
   if (loading) return <p className="text-center mt-10">Cargando publicaciones...</p>;
@@ -45,7 +64,17 @@ export default function Feed() {
     return <p className="text-center mt-10 text-gray-600">No hay contenido que mostrar.</p>;
 
   return (
-    <section className="max-w-2xl mx-auto py-6">
+    <section className="w-full py-0">
+
+      {/* Barra superior con desplegable */}
+      <div className="mb-4 flex items-center justify-between">
+        <TopicDropdown
+          topic={topic}
+          setTopic={setTopic}
+          topics={TOPICS}
+        />
+      </div>
+
       {posts.map((post) => (
         <article key={post.id} className="bg-white shadow-md rounded-2xl p-4 mb-4">
           <div className="flex items-center justify-between">
@@ -62,6 +91,91 @@ export default function Feed() {
           )}
         </article>
       ))}
+
+      {/* Mensaje de fin del feed */}
+      {!hasMore && (
+        <div className="mt-6 mb-2 text-center text-sm text-gray-500" role="status" aria-live="polite">
+          <div className="flex items-center justify-center gap-2">
+            <span className="inline-block h-[1px] w-10 bg-gray-200" />
+            <span>No hay más publicaciones</span>
+            <span className="inline-block h-[1px] w-10 bg-gray-200" />
+          </div>
+        </div>
+      )}
     </section>
   );
+
+  /** Desplegable accesible de selección de temática */
+function TopicDropdown({
+  topic,
+  setTopic,
+  topics,
+}: {
+  topic: Topic;
+  setTopic: (t: Topic) => void;
+  topics: Topic[];
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  // Cerrar al hacer click fuera
+  useEffect(() => {
+    const onDocClick = (e: MouseEvent) => {
+      if (!ref.current) return;
+      if (open && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  const onSelect = (t: Topic) => {
+    setTopic(t);
+    setOpen(false);
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-2 px-3 py-2 rounded-full border bg-white shadow-sm hover:bg-gray-50"
+      >
+        <span className="text-sm">Temática:</span>
+        <span className="text-sm font-medium text-blue-700">{topic}</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" className={`transition ${open ? "rotate-180" : ""}`}>
+          <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+        </svg>
+      </button>
+
+      {open && (
+        <ul
+          role="listbox"
+          aria-label="Seleccionar temática"
+          className="absolute z-40 mt-2 w-56 bg-white border rounded-xl shadow-lg p-1"
+        >
+          {topics.map((t) => {
+            const active = t === topic;
+            return (
+              <li key={t}>
+                <button
+                  role="option"
+                  aria-selected={active}
+                  onClick={() => onSelect(t)}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-blue-50 ${
+                    active ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-700"
+                  }`}
+                >
+                  {t}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
 }
+
+}
+
