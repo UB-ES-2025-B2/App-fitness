@@ -12,7 +12,27 @@ type Post = {
   image?: string;
 };
 
+type BackendPost = {
+  id: number;
+  text: string;
+  topic?: string | null;
+  image?: string | null;
+  date?: string | null;
+  user?: { id: number; username: string; name?: string | null } | null;
+};
+
 const TOPICS: Topic[] = ["Todos", "Fútbol", "Básquet", "Montaña"];
+
+// ---- helper de normalización: BackendPost -> Post
+function normalizePost(p: BackendPost): Post {
+  return {
+    id: p.id,
+    text: p.text,
+    topic: (p.topic ?? "Todos") as string,
+    image: p.image ?? undefined,
+    user: (p.user?.name && p.user.name.trim()) || p.user?.username || "Usuario",
+  };
+}
 
 export default function Feed() {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -24,10 +44,10 @@ export default function Feed() {
   useEffect(() => {
   const fetchPosts = async () => {
     try {
-      const res = await fetch("http://127.0.0.1:5000/api/posts");
+      const res = await fetch("http://127.0.0.1:5000/api/posts/");
       if (!res.ok) throw new Error("Error cargando posts");
-      const data: Post[] = await res.json();
-      setPosts(data);
+      const data: BackendPost[] = await res.json();
+      setPosts(data.map(normalizePost));
       setHasMore(false); // de momento no hay paginación
     } catch (err: any) {
       setError(err.message);
@@ -54,6 +74,11 @@ export default function Feed() {
   if (loading) return <p className="text-center mt-10">Cargando publicaciones...</p>;
   if (error) return <p className="text-center text-red-500 mt-10">{error}</p>;
   if (posts.length === 0)
+    return <p className="text-center mt-10 text-gray-600">No hay contenido que mostrar.</p>;
+
+  const visible = posts.filter(p => topic === "Todos" || p.topic === topic);
+
+  if (visible.length === 0)
     return <p className="text-center mt-10 text-gray-600">No hay contenido que mostrar.</p>;
 
   return (
