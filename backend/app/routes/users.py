@@ -11,6 +11,35 @@ def get_users():
     users = User.query.all()
     return jsonify([u.to_dict() for u in users])
 
+@bp.route("/<int:user_id>/preferences", methods=["GET"])
+def get_preferences(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    return jsonify({"preferences": user.preferences})
+
+
+@bp.route("/<int:user_id>/preferences", methods=["POST"])
+def add_preferences(user_id):
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    data = request.json
+    new_prefs = data.get("preferences", [])
+
+    if not isinstance(new_prefs, list):
+        return jsonify({"error": "Las preferencias deben ser una lista"}), 400
+
+    # Evita duplicados
+    current = set(user.preferences or [])
+    current.update(new_prefs)
+    user.preferences = list(current)
+
+    db.session.commit()
+    return jsonify(user.to_dict()), 200@bp.get("/<int:user_id>")
+
 @bp.get("/<int:user_id>")
 def get_profile(user_id):
     user = User.query.get_or_404(user_id)

@@ -1,6 +1,7 @@
 from .. import db
 import bcrypt
 from datetime import datetime
+from sqlalchemy.dialects.sqlite import JSON
 from . import follow
 
 class User(db.Model):
@@ -17,6 +18,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(60), nullable=False)  # bcrypt hash
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    preferences = db.Column(JSON, default=list)
     updated_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     posts = db.relationship("Post", backref="author", lazy="dynamic", cascade="all, delete-orphan")
