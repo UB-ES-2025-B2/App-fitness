@@ -13,13 +13,15 @@ def create_app():
 
     CORS(app)
     db.init_app(app)
-    migrate.init_app(app, db)
 
     # Importa modelos para que Alembic los detecte
-    from app.models import user_model, post_model 
+    from app.models import User, Post, follow
+
+    migrate.init_app(app, db)
 
     # Importa y registra blueprints con prefijo
-    from app.routes.posts import posts_bp
-    app.register_blueprint(posts_bp, url_prefix="/api")
+    from app.routes import users, posts
+    app.register_blueprint(users.bp)
+    app.register_blueprint(posts.bp)
 
     return app
