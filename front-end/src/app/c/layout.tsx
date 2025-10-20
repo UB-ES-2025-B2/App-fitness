@@ -24,6 +24,12 @@ export default function CommunityLayout({
             <Link href="/perfil" className="hover:text-gray-300">
               Mi Perfil
             </Link>
+            <Link href="/login" className="hover:text-gray-300">
+              Login
+            </Link>
+            <Link href="/registration" className="hover:text-gray-300">
+              Registracion
+            </Link>
           </div>
         </div>
       </nav>
