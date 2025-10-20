@@ -16,6 +16,7 @@ def create_app():
 
     # Importa modelos para que Alembic los detecte
     from app.models import User, Post, follow
+    from app.routes.auth import bp as auth_bp
 
     migrate.init_app(app, db)
 
@@ -23,5 +24,7 @@ def create_app():
     from app.routes import users, posts
     app.register_blueprint(users.bp)
     app.register_blueprint(posts.bp)
+    app.register_blueprint(auth_bp)
+
 
     return app
