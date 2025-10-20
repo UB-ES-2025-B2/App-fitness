@@ -5,6 +5,7 @@ import Header from "./components/Header";
 import { TopicProvider } from "./components/TopicContext";
 import AddPostButton from "./components/AddPostButton";
 import NutritionButton from "./components/NutritionButton";
+import LogInButton from "./components/LogInButton";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,6 +30,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Header />
           <main className="pt-20">{children}</main>
           <AddPostButton />
+          <LogInButton />
           <NutritionButton />
         </TopicProvider>
       </body>
