@@ -29,7 +29,12 @@ def register():
     db.session.add(user)
     db.session.commit()
 
-    return jsonify({"message": "Usuario creado correctamente"}), 201
+    return jsonify({"message": "Usuario creado correctamente",
+                    "user": {
+            "id": user.id,
+            "name": user.name,
+            "email": user.email
+        }}), 201
 
 
 @bp.route('/login', methods=['POST'])
