@@ -6,6 +6,8 @@ import Image from "next/image";
 
 import ProfileAvatar from "../components/ProfileAvatar";
 
+
+
 type Post = { id: number; text: string; image?: string; topic: string; date: string };
 type User = { id: string; name: string; username: string };
 type Community = { id: string; name: string; topic: string };

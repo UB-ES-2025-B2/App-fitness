@@ -10,8 +10,14 @@ export default function Header() {
     return (
       <header className="fixed top-0 left-0 w-full bg-white shadow-sm z-50">
         <nav className="max-w-4xl mx-auto px-6 py-3 flex justify-between items-center">
-          {/* Logo o título */}
-          <h1 className="text-xl font-semibold text-blue-600">UB Fitness</h1>
+          {/* Logo -> Link a inicio */}
+          <Link
+            href="/"
+            aria-label="Ir al inicio"
+            className="text-xl font-semibold text-blue-600 hover:text-blue-700 transition focus:outline-none focus:ring-2 focus:ring-blue-400 rounded"
+          >
+            UB Fitness
+          </Link>
           <form role="search" className="flex-1 max-w-md ml-auto" onSubmit={(e) => e.preventDefault()}>
           <div className="relative">
             <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2">

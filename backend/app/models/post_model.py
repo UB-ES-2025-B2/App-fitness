@@ -1,4 +1,4 @@
-from app import db
+from .. import db
 import bcrypt
 from datetime import datetime
 
@@ -11,3 +11,17 @@ class Post(db.Model):
     text = db.Column(db.Text, nullable=False)
     image_url = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "text": self.text,
+            "topic": self.topic or "",
+            "image": self.image_url,
+            "date": self.created_at.isoformat() if self.created_at else None,
+            "user": {
+                "id": self.author.id,
+                "username": self.author.username,
+                "name": self.author.name,
+            },
+        }
