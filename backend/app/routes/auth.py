@@ -14,6 +14,8 @@ def register():
     name = data.get('name')
     email = data.get('email')
     password = data.get('password')
+    username = data.get('username')
+    print(data)
 
     if not all([name, email, password]):
         return jsonify({"error": "Faltan campos"}), 400
@@ -23,7 +25,7 @@ def register():
     if User.query.filter_by(name=name).first():
         return jsonify({"error": "El nombre de usuario ya está registrado"}), 400
 
-    user = User(name=name, email=email)
+    user = User(name=name, email=email, username=username)
     user.set_password(password)
 
     db.session.add(user)
@@ -33,32 +35,37 @@ def register():
                     "user": {
             "id": user.id,
             "name": user.name,
-            "email": user.email
+            "email": user.email,
+            "username": user.username
         }}), 201
-
 
 @bp.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
-    user_or_email = data.get('user')
-    password = data.get('password')
+    print(data)
+    secret = current_app.config.get("JWT_SECRET_KEY") or current_app.config.get("SECRET_KEY")
+    if not isinstance(secret, (str, bytes)) or not secret:
+        secret = "dev-secret-change-me"  
+    user_or_email = str(data.get('email'))
+    password = str(data.get('password'))
     user = User.query.filter_by(email=user_or_email).first()
     user2 = User.query.filter_by(name = user_or_email).first()
     if not user or not user.check_password(password):
         if not user2 or not user2.check_password(password):
             return jsonify({"error": "Credenciales inválidas"}), 401
         user = user2
-
-    token = jwt.encode({
-        "user_id": user.id,
-        "type": "access",
-        "exp": datetime.utcnow() + timedelta(hours=1) 
-    }, current_app.config['SECRET_KEY'], algorithm="HS256")
-    refresh_token = jwt.encode({
-        "user_id": user.id,
-        "type": "refresh",
-        "exp": datetime.utcnow() + timedelta(days=7)
-    }, current_app.config['SECRET_KEY'], algorithm="HS256")
+    token = jwt.encode(
+        {"user_id": user.id, "type": "access",
+        "exp": datetime.utcnow() + timedelta(hours=1)},
+        secret,
+        algorithm="HS256"
+    )
+    refresh_token = jwt.encode(
+        {"user_id": user.id, "type": "refresh",
+        "exp": datetime.utcnow() + timedelta(days=7)},
+        secret,
+        algorithm="HS256"
+    )
 
     return jsonify({
         "message": "Inicio de sesión correcto",
