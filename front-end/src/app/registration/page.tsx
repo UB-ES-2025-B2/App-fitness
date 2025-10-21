@@ -57,7 +57,8 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/register`, {
+      const base = process.env.NEXT_PUBLIC_API_BASE!;
+      const res = await fetch(`${base}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -77,7 +78,13 @@ export default function RegisterPage() {
         throw new Error(text || "Error al registrarse");
       }
 
-      router.push("/login");
+      const data = await res.json();
+      localStorage.setItem("ubfitness_tokens", JSON.stringify({
+        access_token: data.access_token,
+        refresh_token: data.refresh_token
+      }));
+      router.push("/perfil");
+
     } catch (err: any) {
       setError(err.message || "Error al registrarse");
     } finally {

@@ -1,19 +1,26 @@
 // src/app/page.tsx
-import Feed from "./components/Feed";
-import FollowedCommunities from "./components/FollowedCommunities";
+"use client";
 
-export default function HomePage() {
-  return (
-    <div className="max-w-5xl mx-auto px-4 lg:px-6 py-6 lg:py-8">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <Feed />
-        </div>
-        <div className="lg:col-span-1">
-          <FollowedCommunities />
-        </div>
-      </div>
-    </div>
-  );
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+export default function Root() {
+  const router = useRouter();
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("ubfitness_tokens");
+      const tokens = raw && JSON.parse(raw);
+      if (tokens?.access_token) {
+        router.replace("/home");   // logueado → feed
+      } else {
+        router.replace("/login");    // no logueado → login
+      }
+    } catch {
+      router.replace("/login");
+    }
+  }, [router]);
+
+  return <div className="p-6">Cargando…</div>;
 }
 

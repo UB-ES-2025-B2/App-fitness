@@ -30,7 +30,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Header />
           <main className="pt-20">{children}</main>
           <AddPostButton />
-          <LogInButton />
           <NutritionButton />
         </TopicProvider>
       </body>

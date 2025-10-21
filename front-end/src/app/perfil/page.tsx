@@ -6,15 +6,54 @@ import Image from "next/image";
 
 import ProfileAvatar from "../components/ProfileAvatar";
 
+import { useRouter } from "next/navigation";
+import { authFetch, getTokens, clearTokens } from "../lib/api";
 
+import LogoutButton from "../components/LogOutButton";
+
+type ApiUser = {
+  id: number;
+  name?: string;
+  email?: string;
+  username?: string;
+  avatar_url?: string;
+  bio?: string;
+  ocultar_info?: boolean;
+  preferences?: Array<"Fútbol" | "Básquet" | "Montaña"> | string[]; // por si back devuelve otros ids
+};
+
+async function fetchMe(): Promise<ApiUser | null> {
+  const res = await authFetch("/auth/me");
+  if (!res.ok) return null;
+  return res.json();
+}
+
+async function updateMe(patch: Partial<{
+  name: string;
+  username: string;
+  avatar_url: string | null;
+  preferences: string[];
+  ocultar_info: boolean;
+}>) {
+  const res = await authFetch("/auth/me", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || "No se pudo guardar el perfil");
+  }
+  return res.json(); // { message, user: {...} }
+}
 
 type Post = { id: number; text: string; image?: string; topic: string; date: string };
 type User = { id: string; name: string; username: string };
 type Community = { id: string; name: string; topic: string };
 
 const MY_POSTS: Post[] = [
-  { id: 101, text: "Series de cuestas esta mañana 💪", topic: "Montaña", date: "2025-10-10", image: "https://images.unsplash.com/photo-1520975922284-9e0e4a9f08fd" },
-  { id: 102, text: "Partidillo con amigos ⚽️", topic: "Fútbol", date: "2025-10-07" },
+  { id: 101, text: "Series de cuestas esta mañana 💪", topic: "Montaña", date: "2025-10-10", image: './images/MontanaCuesta.png' },
+  { id: 102, text: "Partidillo con amigos ⚽️", topic: "Fútbol", date: "2025-10-07", image: './images/pachanga.png' },
 ];
 
 const MY_FOLLOWERS: User[] = [
@@ -46,33 +85,92 @@ type Profile = {
 };
 
 const INITIAL_PROFILE: Profile = {
-  nombre: "Nuria",
-  apellido1: "García",
-  apellido2: "López",
-  username: "nuria.fit",
-  fechaNacimiento: "1998-05-20",
-  lugarNacimiento: "Barcelona",
-  direccion: "C/ Ejemplo 123, Barcelona",
-  temas: ["Fútbol", "Montaña"],
-  ocultarInfo: true, // activado por defecto
-  avatarUrl: undefined, // vacío al inicio
+  nombre: "",
+  apellido1: "",
+  apellido2: "",
+  username: "",
+  fechaNacimiento: "",
+  lugarNacimiento: "",
+  direccion: "",
+  temas: [],
+  ocultarInfo: true,
+  avatarUrl: undefined,
 };
 
 export default function ProfilePage() {
+  const router = useRouter();
   const [tab, setTab] = useState<"posts" | "followers" | "following">("posts");
   const [profile, setProfile] = useState<Profile>(INITIAL_PROFILE);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // si no hay tokens -> a /login
+    if (!getTokens()) {
+      router.replace("/login");
+      return;
+    }
+    (async () => {
+      const me = await fetchMe();
+      if (!me) {
+        clearTokens();
+        router.replace("/login");
+        return;
+      }
+
+      // Mapea lo que venga del back a tu shape local
+      setProfile({
+        nombre: me.name ?? "",
+        apellido1: "",           // aún no viene del back
+        apellido2: "",
+        username: me.username ?? "",
+        fechaNacimiento: "",
+        lugarNacimiento: "",
+        direccion: "",
+        avatarUrl: me.avatar_url ?? undefined,
+        temas: Array.isArray(me.preferences) ? (me.preferences as any) : [],
+        ocultarInfo: typeof me.ocultar_info === "boolean" ? me.ocultar_info : true,
+      });
+
+      setLoading(false);
+    })();
+  }, [router]);
+
+  if (loading) return <p className="p-6">Cargando perfil…</p>;
+  
+  const PH = "Aún no almacenado";
+  const show = (v?: string) => (v && v.trim() ? v : PH);
+  const fullName =
+  [profile.nombre, profile.apellido1, profile.apellido2]
+    .filter(Boolean)
+    .join(" ")
+    .trim() || PH;
 
   return (
     <div className="max-w-3xl mx-auto px-4 lg:px-0 py-6">
       {/* Header perfil */}
       <section className="bg-white rounded-2xl shadow-md p-5 mb-6 relative">
+        
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             {/* AVATAR CLICABLE */}
             <ProfileAvatar
               value={profile.avatarUrl}
-              onChange={(url) => setProfile((p) => ({ ...p, avatarUrl: url }))}
+              onChange={async (url) => {
+                // Optimista en UI
+                setProfile((p) => ({ ...p, avatarUrl: url }));
+                try {
+                  await updateMe({ avatar_url: url || null });
+                } catch (e) {
+                  // Revertir si falla
+                  setProfile((p) => ({ ...p, avatarUrl: undefined }));
+                  alert((e as Error).message);
+                }
+              }}
             />
+
+            <div className="flex items-center gap-2">
+              <LogoutButton /> {/* Botón de cerrar sesión */}
+            </div>
 
             <div>
               <h2 className="text-xl font-semibold">
@@ -150,16 +248,10 @@ function SettingsDropdown({
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<Profile>(profile);
   const panelRef = useRef<HTMLDivElement | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Cierra al clicar fuera
-  useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      if (!panelRef.current) return;
-      if (open && !panelRef.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
-  }, [open]);
+  useEffect(() => setForm(profile), [profile]); // si fuera cambia desde fuera, sincroniza
 
   const toggleTema = (tema: "Fútbol" | "Básquet" | "Montaña") => {
     setForm((f) => {
@@ -168,9 +260,27 @@ function SettingsDropdown({
     });
   };
 
-  const save = () => {
-    onSave(form);
-    setOpen(false);
+  const save = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      // Mapeo de tu UI -> API
+      await updateMe({
+        name: form.nombre,                          // <-- name
+        username: form.username,                    // <-- username
+        preferences: form.temas,                    // <-- preferences (array de strings)
+        ocultar_info: form.ocultarInfo,             // <-- boolean
+        // avatar_url ya lo guardamos al vuelo arriba; si quisieras guardarlo aquí:
+        // avatar_url: form.avatarUrl || null,
+      });
+      // Refleja en UI lo guardado
+      onSave(form);
+      setOpen(false);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -253,14 +363,19 @@ function SettingsDropdown({
 
           {/* Acciones */}
           <div className="mt-4 flex justify-end gap-2">
-            <button onClick={() => setOpen(false)} className="px-3 py-1.5 text-sm rounded-lg bg-gray-100 hover:bg-gray-200">
+            <button
+              onClick={() => setOpen(false)}
+              disabled={saving}
+              className="px-3 py-1.5 text-sm rounded-lg bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
+            >
               Cancelar
             </button>
             <button
               onClick={save}
-              className="px-4 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+              disabled={saving}
+              className="px-4 py-1.5 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
             >
-              Guardar
+              {saving ? "Guardando..." : "Guardar"}
             </button>
           </div>
         </div>

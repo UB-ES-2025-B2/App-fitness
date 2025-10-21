@@ -18,7 +18,8 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL}/auth/login`, {
+      const base = process.env.NEXT_PUBLIC_API_BASE!;
+      const res = await fetch(`${base}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
@@ -31,9 +32,18 @@ export default function LoginPage() {
       const data = await res.json();
       console.log("Login success:", data);
 
-      localStorage.setItem("token", data.token);
+      localStorage.setItem(
+        "ubfitness_tokens",
+        JSON.stringify({
+          access_token: data.access_token || data.token, // por si tu back devolviera token
+          refresh_token: data.refresh_token || null,
+        })
+      );
 
-      router.push("/comunidades");
+      // guarda el usuario por comodidad
+      localStorage.setItem("ubfitness_user", JSON.stringify(data.user));
+
+      router.push("/home");
     } catch (err: any) {
       setError(err.message || "Error al iniciar sesión");
     } finally {
