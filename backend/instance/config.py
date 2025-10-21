@@ -1,0 +1,3 @@
+SQLALCHEMY_DATABASE_URI = "sqlite:///dev.db"
+SECRET_KEY = "dev-secret"
+SQLALCHEMY_TRACK_MODIFICATIONS = False
