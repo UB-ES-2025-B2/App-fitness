@@ -53,6 +53,7 @@ export default function RegisterPage() {
       setError("Las contraseñas no coinciden.");
       return;
     }
+    console.log(form)
 
     setLoading(true);
     try {

@@ -33,7 +33,7 @@ export default function LoginPage() {
 
       localStorage.setItem("token", data.token);
 
-      router.push("/communities");
+      router.push("/comunidades");
     } catch (err: any) {
       setError(err.message || "Error al iniciar sesión");
     } finally {
