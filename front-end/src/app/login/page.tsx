@@ -35,17 +35,18 @@ export default function LoginPage() {
       localStorage.setItem(
         "ubfitness_tokens",
         JSON.stringify({
-          access_token: data.access_token || data.token, // por si tu back devolviera token
+          access_token: data.access_token || null,
           refresh_token: data.refresh_token || null,
         })
       );
 
       // guarda el usuario por comodidad
       localStorage.setItem("ubfitness_user", JSON.stringify(data.user));
+      localStorage.setItem("ubfitness_user_id", data.user.id);
 
       router.push("/home");
-    } catch (err: any) {
-      setError(err.message || "Error al iniciar sesión");
+    } catch (err) {
+      console.error("❌ Error cargando comunidad:", err);
     } finally {
       setLoading(false);
     }
