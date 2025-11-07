@@ -21,10 +21,11 @@ def create_app():
     migrate.init_app(app, db)
 
     # Importa y registra blueprints con prefijo
-    from app.routes import users, posts, comunity
+    from app.routes import users, posts, comunity, event
     app.register_blueprint(users.bp)
     app.register_blueprint(posts.bp)
     app.register_blueprint(comunity.bp)
+    app.register_blueprint(event.bp)
     app.register_blueprint(auth_bp)
 
 
