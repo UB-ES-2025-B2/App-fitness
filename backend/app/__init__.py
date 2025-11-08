@@ -20,11 +20,12 @@ def create_app():
     from app.routes import upload
     migrate.init_app(app, db)
 
-    # Importa i registra blueprints amb prefixos
-    from app.routes import users, posts, comunity
+    # Importa y registra blueprints con prefijo
+    from app.routes import users, posts, comunity, event
     app.register_blueprint(users.bp)
     app.register_blueprint(posts.bp)
     app.register_blueprint(comunity.bp)
+    app.register_blueprint(event.bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(upload.bp)
 

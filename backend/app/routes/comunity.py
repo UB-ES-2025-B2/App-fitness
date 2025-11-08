@@ -1,5 +1,5 @@
 from flask import Blueprint, jsonify
-from ..models import Community, User
+from ..models import Community, User, Event
 from app.models import db
 from flask import request
 
@@ -97,3 +97,97 @@ def join_community(community_id):
         db.session.rollback()
         print("❌ Error al unirse a la comunidad:", e)
         return jsonify({"error": "No se pudo unir a la comunidad"}), 500
+    
+@bp.route("/<int:community_id>/leave", methods=["POST"])
+def leave_community(community_id):
+    """Permite que un usuario se salga de una comunidad."""
+    data = request.get_json(force=True) or {}
+    user_id = data.get("user_id")
+
+    if not user_id:
+        return jsonify({"error": "Falta el campo obligatorio 'user_id'"}), 400
+
+    # Buscar comunidad y usuario
+    community = Community.query.get(community_id)
+    if not community:
+        return jsonify({"error": "Comunidad no encontrada"}), 404
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    # Verificar si ya es miembro
+    if not community.is_member(user):
+        return jsonify({"message": "El usuario no es miembro de esta comunidad."}), 200
+
+    # Añadir usuario a la comunidad
+    try:
+        community.remove_member(user)
+        db.session.commit()
+        return jsonify({
+            "message": f"Usuario {user.username} se unió a la comunidad {community.name}",
+            "community": community.to_dict()
+        }), 200
+    except Exception as e:
+        db.session.rollback()
+        print("❌ Error al unirse a la comunidad:", e)
+        return jsonify({"error": "No se pudo unir a la comunidad"}), 500
+
+
+@bp.route("/<int:community_id>/is_admin/<int:user_id>", methods=["GET"])
+def is_admin(community_id, user_id):
+    """Comprueba si un usuario es administrador de una comunidad"""
+    community = Community.query.get(community_id)
+    if not community:
+        return jsonify({"error": "Comunidad no encontrada"}), 404
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    is_admin = community.is_admin(user)
+    return jsonify({"is_admin": is_admin}), 200
+
+
+@bp.route("/<int:community_id>/is_member/<int:user_id>", methods=["GET"])
+def is_member(community_id, user_id):
+    """Comprueba si un usuario es miembro de una comunidad"""
+    community = Community.query.get(community_id)
+    if not community:
+        return jsonify({"error": "Comunidad no encontrada"}), 404
+
+    user = User.query.get(user_id)
+    if not user:
+        return jsonify({"error": "Usuario no encontrado"}), 404
+
+    is_member = community.is_member(user)
+    return jsonify({"is_member": is_member}), 200
+
+@bp.route("/<int:community_id>/full/<int:user_id>", methods=["GET"])
+def get_full_community_data(community_id, user_id):
+    """Devuelve toda la información relevante de una comunidad para un usuario"""
+
+    community = Community.query.get_or_404(community_id)
+    user = User.query.get_or_404(user_id)
+
+
+    community_data = community.to_dict()
+
+    events = Event.query.filter_by(community_id=community_id).all()
+    events_data = []
+    for ev in events:
+        is_joined = ev.is_participant(user)
+        ev_dict = ev.to_dict()
+        ev_dict["is_joined"] = is_joined
+        events_data.append(ev_dict)
+
+    is_admin = community.is_admin(user)
+    is_member = community.is_member(user)
+
+    return jsonify({
+        "community": community_data,
+        "events": events_data,
+        "is_admin": is_admin,
+        "is_member": is_member
+    })
+
