@@ -5,12 +5,9 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 const TOPICS = [
-  { id: "running", label: "Running" },
-  { id: "yoga", label: "Yoga" },
-  { id: "cross_training", label: "Cross-training" },
-  { id: "mujeres", label: "Mujeres" },
-  { id: "tercer_edad", label: "Tercera edad" },
-  { id: "principiantes", label: "Principiantes" },
+  { id: "futbol", label: "Fútbol" },
+  { id: "basket", label: "Baloncesto" },
+  { id: "montana", label: "Montaña" },
 ];
 
 export default function RegisterPage() {
