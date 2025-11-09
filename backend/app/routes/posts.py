@@ -2,6 +2,7 @@ from flask import Blueprint, jsonify, request
 from app.models.post_model import Post
 from app.models.user_model import User
 from app import db
+from app.utils.auth_utils import token_required
 
 bp = Blueprint("posts", __name__, url_prefix="/api/posts")
 
@@ -22,29 +23,23 @@ def posts_by_user(user_id):
 
 # 🔹 3️⃣ Crear un nou post (💥 aquest és el que faltava)
 @bp.post("/")
-def create_post():
+@token_required
+def create_post(current_user):
     """
-    Crea una nova publicació amb text, tema i imatge opcional.
-    Requereix: user_id, topic, text (i opcionalment image_url)
+    Crea una publicació amb text, tema i imatge opcional.
+    Deriva el user_id del token (ignora user_id del body si viene).
     """
     data = request.get_json(force=True) or {}
 
-    user_id = data.get("user_id")
-    topic = data.get("topic", "General")
     text = (data.get("text") or "").strip()
+    if not text:
+        return jsonify({"error": "Falta el campo 'text'"}), 400
+
+    topic = data.get("topic", "General")
     image_url = data.get("image_url")
 
-    # Validacions bàsiques
-    if not user_id or not text:
-        return jsonify({"error": "Falten camps obligatoris (user_id i text)"}), 400
-
-    user = User.query.get(user_id)
-    if not user:
-        return jsonify({"error": "Usuari no trobat"}), 404
-
-    # Crear i desar el post
     post = Post(
-        user_id=user_id,
+        user_id=current_user.id,
         topic=topic,
         text=text,
         image_url=image_url
@@ -52,7 +47,6 @@ def create_post():
 
     db.session.add(post)
     db.session.commit()
-
     return jsonify(post.to_dict()), 201
 
 
