@@ -85,8 +85,6 @@ function Composer({
       if (file) {
         const formData = new FormData();
         formData.append("image", file);
-
-        const uploadRes = await fetch(`${API_BASE}/api/upload/`, {
         const uploadRes = await fetch(`${API_BASE}/api/upload/`, {
           method: "POST",
           body: formData,
