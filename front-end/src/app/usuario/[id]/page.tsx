@@ -116,11 +116,11 @@ export default function UserProfilePage() {
         if (currentUserId) {
           const myFollowingRes = await fetch(`${API_BASE}/api/users/${currentUserId}/following`);
           const myFollowingData = await myFollowingRes.json();
-          setIsFollowing(myFollowingData.some((u: any) => u.id === parseInt(userId)));
+          setIsFollowing(myFollowingData.some((u: { id: number }) => u.id === parseInt(userId)));
         }
-      } catch (err: any) {
+      } catch (err) {
         console.error(err);
-        setError(err.message || "Error al cargar el perfil");
+        setError(err instanceof Error ? err.message : "Error al cargar el perfil");
       } finally {
         setLoading(false);
       }
