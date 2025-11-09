@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Topic, useTopic } from "./TopicContext";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 
 type Post = {
   id: number;
@@ -48,7 +49,7 @@ export default function Feed() {
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const res = await fetch("http://127.0.0.1:5000/api/posts/");
+        const res = await fetch(`${API_BASE}/api/posts/`);
         if (!res.ok) throw new Error("Error cargando posts");
         const data: BackendPost[] = await res.json();
         setPosts(data.map(normalizePost));
