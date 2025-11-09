@@ -52,8 +52,8 @@ export default function Feed() {
         if (!res.ok) throw new Error("Error cargando posts");
         const data: BackendPost[] = await res.json();
         setPosts(data.map(normalizePost));
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err) {
+        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -62,7 +62,7 @@ export default function Feed() {
     fetchPosts();
 
     const onNewPost = (e: Event) => {
-      const detail = (e as CustomEvent<any>).detail;
+      const detail = (e as CustomEvent<Post>).detail;
       setPosts((prev) => [detail, ...prev]);
     };
     window.addEventListener("new-post", onNewPost as EventListener);
