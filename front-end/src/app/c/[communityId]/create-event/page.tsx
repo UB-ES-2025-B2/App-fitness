@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Cropper from "react-easy-crop";
 import { getCroppedImage } from "../../../components/GetCroppedImage";
+import { Area } from "react-easy-crop";
 
 export default function CreateEventPage({ params }: { params: { communityId: string } }) {
   const { communityId } = params;
@@ -22,7 +23,7 @@ export default function CreateEventPage({ params }: { params: { communityId: str
   const [cropMode, setCropMode] = useState(false);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

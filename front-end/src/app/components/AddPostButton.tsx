@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useTopic, Topic } from "./TopicContext";
 import Cropper from "react-easy-crop";
 import { getCroppedImage } from "../components/GetCroppedImage";
+import { Area } from "react-easy-crop";
 
 type NewPostPayload = {
   id: number;
@@ -13,6 +14,7 @@ type NewPostPayload = {
   text: string;
   image?: string;
 };
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 
 export default function AddPostButton() {
   const [open, setOpen] = useState(false);
@@ -58,7 +60,7 @@ function Composer({
   const [cropMode, setCropMode] = useState(false);
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<any>(null);
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
 
   useEffect(() => {
     if (!file) return setPreview(null);
@@ -76,7 +78,7 @@ function Composer({
         const formData = new FormData();
         formData.append("image", file);
 
-        const uploadRes = await fetch("http://127.0.0.1:5000/api/upload/", {
+        const uploadRes = await fetch(`${API_BASE}/api/upload/`, {
           method: "POST",
           body: formData,
         });
@@ -88,7 +90,7 @@ function Composer({
         console.log("✅ Imatge pujada:", imageUrl);
       }
 
-      const postRes = await fetch("http://127.0.0.1:5000/api/posts/", {
+      const postRes = await fetch(`${API_BASE}/api/posts/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
