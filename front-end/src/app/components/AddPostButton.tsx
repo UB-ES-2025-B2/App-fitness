@@ -6,6 +6,7 @@ import { useTopic, Topic } from "./TopicContext";
 import Cropper from "react-easy-crop";
 import { getCroppedImage } from "../components/GetCroppedImage";
 import { Area } from "react-easy-crop";
+import { authFetch, getTokens } from "../lib/api";
 
 type NewPostPayload = {
   id: number;
@@ -69,42 +70,44 @@ function Composer({
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
+  const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+
   const submit = async () => {
     setUploading(true);
-    let imageUrl: string | undefined = undefined;
+    let imageUrl: string | undefined;
 
     try {
+      const tokens = getTokens(); // debería devolver { access_token, refresh_token } o similar
+      const access = tokens?.access_token;
+      if (!access) throw new Error("No estás autenticado");
+
+      // Subida
       if (file) {
         const formData = new FormData();
         formData.append("image", file);
-
         const uploadRes = await fetch(`${API_BASE}/api/upload/`, {
           method: "POST",
           body: formData,
         });
 
-        if (!uploadRes.ok) throw new Error("Error en la pujada de la imatge");
-
-        const uploadData = await uploadRes.json();
-        imageUrl = uploadData.url;
-        console.log("✅ Imatge pujada:", imageUrl);
+        if (!uploadRes.ok) {
+          const txt = await uploadRes.text();
+          throw new Error(`Upload failed ${uploadRes.status} → ${txt}`);
+        }
+        const { url } = await uploadRes.json();
+        imageUrl = url;
       }
 
-      const postRes = await fetch(`${API_BASE}/api/posts/`, {
+      // Crear el post
+      const postRes = await authFetch(`/api/posts/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: 1,
-          topic,
-          text,
-          image_url: imageUrl,
-        }),
+        body: JSON.stringify({ topic, text, image_url: imageUrl }),
       });
-
+      
       if (!postRes.ok) throw new Error("Error al crear el post");
 
       const newPost = await postRes.json();
-      console.log("🗄️ Post desat a la base de dades:", newPost);
 
       const normalizedPost = {
         id: newPost.id,
@@ -118,7 +121,6 @@ function Composer({
       };
 
       window.dispatchEvent(new CustomEvent("new-post", { detail: normalizedPost }));
-
       onClose();
     } catch (err) {
       console.error("❌ Error creant el post:", err);
