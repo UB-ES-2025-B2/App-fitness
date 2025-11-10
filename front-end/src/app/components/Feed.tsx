@@ -1,11 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Topic, useTopic } from "./TopicContext";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 
 type Post = {
   id: number;
   user: string;
+  userId?: number;
   topic: string;
   text: string;
   image?: string;
@@ -29,12 +32,15 @@ function normalizePost(p: BackendPost): Post {
       ? p.user
       : p.user?.name || p.user?.username || "Usuari";
 
+  const userId = typeof p.user === "object" && p.user?.id ? p.user.id : undefined;
+
   return {
     id: p.id,
     text: p.text,
     topic: (p.topic ?? "General") as string,
     image: p.image ?? undefined,
     user: userName,
+    userId,
   };
 }
 
@@ -48,12 +54,12 @@ export default function Feed() {
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const res = await fetch("http://127.0.0.1:5000/api/posts/");
+        const res = await fetch(`${API_BASE}/api/posts/`);
         if (!res.ok) throw new Error("Error cargando posts");
         const data: BackendPost[] = await res.json();
         setPosts(data.map(normalizePost));
-      } catch (err: any) {
-        setError(err.message);
+      } catch (err) {
+        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -62,7 +68,7 @@ export default function Feed() {
     fetchPosts();
 
     const onNewPost = (e: Event) => {
-      const detail = (e as CustomEvent<any>).detail;
+      const detail = (e as CustomEvent<Post>).detail;
       setPosts((prev) => [detail, ...prev]);
     };
     window.addEventListener("new-post", onNewPost as EventListener);
@@ -90,7 +96,16 @@ export default function Feed() {
                        rounded-2xl p-5 shadow-sm hover:shadow-lg transition-shadow duration-300"
           >
             <div className="flex items-center justify-between mb-2">
-              <h2 className="font-semibold text-blue-600 dark:text-blue-400">{post.user}</h2>
+              {post.userId ? (
+                <Link 
+                  href={`/usuario/${post.userId}`}
+                  className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {post.user}
+                </Link>
+              ) : (
+                <h2 className="font-semibold text-blue-600 dark:text-blue-400">{post.user}</h2>
+              )}
               <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
                 {post.topic}
               </span>

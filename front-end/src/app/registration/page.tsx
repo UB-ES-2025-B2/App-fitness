@@ -10,6 +10,17 @@ const TOPICS = [
   { id: "montana", label: "Montaña" },
 ];
 
+  type RegisterForm = {
+  username: string;
+  name: string;
+  email: string;
+  password: string;
+  password2: string;
+  avatar_url: string;
+  bio: string;
+  ocultar_info: boolean;
+};
+
 export default function RegisterPage() {
   const router = useRouter();
 
@@ -28,12 +39,16 @@ export default function RegisterPage() {
   const [error, setError] = useState("");
 
   const onChange =
-    (k: keyof typeof form) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      const target = e.target as HTMLInputElement;
-      const value = target.type === "checkbox" ? target.checked : target.value;
-      setForm((f) => ({ ...f, [k]: value as any }));
-    };
+  <K extends keyof RegisterForm>(k: K) =>
+  (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const target = e.target;
+    const value =
+      target instanceof HTMLInputElement && target.type === "checkbox"
+        ? target.checked
+        : target.value;
+
+    setForm((f) => ({ ...f, [k]: value as RegisterForm[K] }));
+  };
 
   const toggleTopic = (id: string) =>
     setTopics((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
@@ -82,8 +97,8 @@ export default function RegisterPage() {
       }));
       router.push("/perfil");
 
-    } catch (err: any) {
-      setError(err.message || "Error al registrarse");
+    } catch (err) {
+      console.error(err);
     } finally {
       setLoading(false);
     }
