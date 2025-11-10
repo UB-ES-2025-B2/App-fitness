@@ -2,6 +2,7 @@ from sqlite3 import IntegrityError
 from flask import Blueprint, request, jsonify, current_app, g
 from flask_mail import Message
 from sqlalchemy.exc import IntegrityError
+from flask_cors import cross_origin
 from datetime import datetime, timedelta
 import jwt, hashlib
 import re
@@ -193,6 +194,15 @@ def verify_email():
         return jsonify({"error": "Token de verificación inválido"}), 400
 
 @bp.route('/resend-verification', methods=['POST', 'OPTIONS'])
+@cross_origin(  
+    origins=[
+        "http://localhost:3000",
+        "https://app-fitness-1-pr-61.onrender.com",  
+        "https://app-fitness-1.onrender.com", 
+    ],
+    methods=["POST", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization"]
+)
 def resend_verification():
     if request.method == "OPTIONS":
         return ("", 204)
