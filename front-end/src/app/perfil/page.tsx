@@ -127,7 +127,11 @@ export default function ProfilePage() {
         lugarNacimiento: "",
         direccion: "",
         avatarUrl: me.avatar_url ?? undefined,
-        temas: Array.isArray(me.preferences) ? (me.preferences as any) : [],
+        temas: Array.isArray(me.preferences)
+          ? (me.preferences as string[]).filter((t) =>
+              ["Fútbol", "Básquet", "Montaña"].includes(t)
+            ) as Array<"Fútbol" | "Básquet" | "Montaña">
+          : [],
         ocultarInfo: typeof me.ocultar_info === "boolean" ? me.ocultar_info : true,
       });
 

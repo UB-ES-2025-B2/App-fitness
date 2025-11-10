@@ -38,7 +38,7 @@ def add_preferences(user_id):
     user.preferences = list(current)
 
     db.session.commit()
-    return jsonify(user.to_dict()), 200@bp.get("/<int:user_id>")
+    return jsonify(user.to_dict()), 200
 
 @bp.get("/<int:user_id>")
 def get_profile(user_id):

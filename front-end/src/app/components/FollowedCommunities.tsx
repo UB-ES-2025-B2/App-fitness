@@ -1,23 +1,31 @@
-"use client";
-
-import { useTopic } from "./TopicContext";
 import Link from "next/link";
 
+// Tipo de comunidad (igual que antes)
 type Community = {
   id: string;
   name: string;
-  topic: "Fútbol" | "Básquet" | "Montaña";
+  topic: "Fútbol" | "Básquet" | "Montaña" | string; // por si viene otro
   members: number;
 };
 
-const COMMUNITIES: Community[] = [
-  { id: "fcb-futbol", name: "Fútbol Barcelona", topic: "Fútbol", members: 1240 },
-  { id: "street-hoops", name: "Street Hoops BCN", topic: "Básquet", members: 860 },
-  { id: "pirineos", name: "Pirineos Trail", topic: "Montaña", members: 540 },
-];
+// Petición al backend Flask
+async function getCommunities(): Promise<Community[]> {
+  const base = process.env.NEXT_PUBLIC_API_BASE!;
+  const res = await fetch(`${base}/api/communities/`, {
+    // Importante: desactivar la caché del servidor
+    cache: "no-store",
+  });
 
-export default function FollowedCommunities() {
-  const { setTopic } = useTopic();
+  if (!res.ok) {
+    console.error("❌ Error al obtener comunidades");
+    return [];
+  }
+
+  return res.json();
+}
+
+export default async function FollowedCommunities() {
+  const communities = await getCommunities();
 
   return (
     <aside className="hidden lg:block">
@@ -28,7 +36,7 @@ export default function FollowedCommunities() {
           </h3>
 
           <ul className="space-y-2">
-            {COMMUNITIES.map((c) => (
+            {communities.map((c) => (
               <li key={c.id}>
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">

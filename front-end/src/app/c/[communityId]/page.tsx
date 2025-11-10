@@ -1,19 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import React from "react";
 import Link from "next/link";
-import Image from "next/image";
 
-// Define community type
-type Community = {
-  id: string;
-  name: string;
-  topic: "Fútbol" | "Básquet" | "Montaña";
-  members: number;
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
+// Tipos
+type Event = {
+  id: number;
+  title: string;
   description: string;
-  coverImage: string;
-  themeColor: string;
-  posts: Post[];
+  startDate: string;
+  endDate: string;
+  location: string;
+  imageUrl?: string;
+  participants: number[];
 };
 
 type Post = {
@@ -26,139 +27,165 @@ type Post = {
   date: string;
 };
 
-// Community data with dark themes
-const COMMUNITIES_DATA: Record<string, Community> = {
-  "fcb-futbol": {
-    id: "fcb-futbol",
-    name: "Fútbol Barcelona",
-    topic: "Fútbol",
-    members: 1240,
-    description: "Comunidad para aficionados del fútbol en Barcelona. Compartimos eventos, partidos amistosos y consejos de entrenamiento.",
-    coverImage: "/images/football-cover.jpg",
-    themeColor: "#1a237e", // Dark blue
-    posts: [
-      {
-        id: "post1",
-        title: "Partido amistoso este sábado",
-        content: "Organizamos un partido amistoso en el campo municipal. ¡Todos están invitados!",
-        author: "Carlos Martínez",
-        likes: 24,
-        comments: 8,
-        date: "2023-11-15"
-      },
-      {
-        id: "post2",
-        title: "Técnicas de entrenamiento para mejorar la resistencia",
-        content: "Compartimos algunas técnicas efectivas para mejorar la resistencia en el campo.",
-        author: "Laura Gómez",
-        likes: 32,
-        comments: 5,
-        date: "2023-11-12"
-      }
-    ]
-  },
-  "street-hoops": {
-    id: "street-hoops",
-    name: "Street Hoops BCN",
-    topic: "Básquet",
-    members: 860,
-    description: "Comunidad de baloncesto callejero en Barcelona. Organizamos torneos, compartimos técnicas y nos reunimos para jugar.",
-    coverImage: "/images/basketball-cover.jpg",
-    themeColor: "#4a148c", // Dark purple
-    posts: [
-      {
-        id: "post1",
-        title: "Torneo 3x3 en Plaza Catalunya",
-        content: "Este domingo organizamos un torneo 3x3. Inscripciones abiertas hasta el viernes.",
-        author: "Miguel Torres",
-        likes: 45,
-        comments: 12,
-        date: "2023-11-14"
-      },
-      {
-        id: "post2",
-        title: "Mejora tu tiro de tres puntos",
-        content: "Consejos prácticos para mejorar la precisión en los tiros de larga distancia.",
-        author: "Ana Ruiz",
-        likes: 28,
-        comments: 7,
-        date: "2023-11-10"
-      }
-    ]
-  },
-  "pirineos": {
-    id: "pirineos",
-    name: "Pirineos Trail",
-    topic: "Montaña",
-    members: 540,
-    description: "Grupo de entusiastas del senderismo y trail running en los Pirineos. Compartimos rutas, consejos de equipamiento y organizamos salidas grupales.",
-    coverImage: "/images/mountain-cover.jpg",
-    themeColor: "#1b5e20", // Dark green
-    posts: [
-      {
-        id: "post1",
-        title: "Ruta por el Valle de Núria",
-        content: "Este fin de semana haremos una ruta por el Valle de Núria. Nivel medio-alto, 15km.",
-        author: "Marta Sánchez",
-        likes: 36,
-        comments: 14,
-        date: "2023-11-16"
-      },
-      {
-        id: "post2",
-        title: "Equipamiento esencial para rutas de invierno",
-        content: "Lista de equipamiento imprescindible para hacer rutas seguras durante el invierno.",
-        author: "Javier López",
-        likes: 42,
-        comments: 9,
-        date: "2023-11-11"
-      }
-    ]
-  }
+type Community = {
+  id: string;
+  name: string;
+  topic: string;
+  members: number;
+  description: string;
+  coverImage?: string;
+  themeColor?: string;
+  posts: Post[];
 };
 
-export default function CommunityPage({ params }: { params: { communityId: string } }) {
-  const [community, setCommunity] = useState<Community | null>(null);
-  
-  useEffect(() => {
-    // In a real app, you would fetch this data from an API
-    const communityData = COMMUNITIES_DATA[params.communityId];
-    if (communityData) {
-      setCommunity(communityData);
-    }
-  }, [params.communityId]);
 
-  if (!community) {
+export default function CommunityPage({ params }: { params: Promise<{ communityId: string }> }) {
+  const { communityId } = React.use(params);
+  const userId = localStorage.getItem("ubfitness_user_id");
+  const [community, setCommunity] = useState<Community | null>(null);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [joinedStatus, setJoinedStatus] = useState<Record<number, boolean>>({});
+  const [loading, setLoading] = useState(true);
+  const [joining, setJoining] = useState<number | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isMember, setIsMember] = useState(false);
+
+
+const formatDate = (iso: string) => {
+  if (!iso) return "Fecha inválida";
+
+  // Forzar formato ISO completo con zona UTC
+  const fixedIso = iso.endsWith("Z") ? iso : `${iso}Z`;
+  const d = new Date(fixedIso);
+
+  if (isNaN(d.getTime())) return "Fecha inválida";
+
+  return d.toLocaleString("es-ES", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+      const res = await fetch(`${API_BASE}/api/communities/${communityId}/full/${userId}`);
+      if (!res.ok) throw new Error("Error al obtener los datos completos de la comunidad");
+
+      type FullCommunityResponse = {
+        community: Community;
+        events: (Event & { is_joined: boolean })[];
+        is_admin: boolean;
+        is_member: boolean;
+      };
+
+      const data: FullCommunityResponse = await res.json();
+
+      setCommunity(data.community);
+      setEvents(data.events);
+      setIsAdmin(data.is_admin);
+      setIsMember(data.is_member);
+
+      const statusMap: Record<number, boolean> = {};
+      data.events.forEach((ev) => {
+        statusMap[ev.id] = ev.is_joined;
+      });
+      setJoinedStatus(statusMap);
+
+    } catch (err) {
+      console.error("❌ Error cargando comunidad:", err);
+    } finally {
+      setLoading(false);
+    }
+    };
+
+    fetchData();
+  }, [communityId]);
+
+  // Funció per apuntar-se o desapuntar-se
+  const toggleJoinEvent = async (eventId: number) => {
+    setJoining(eventId);
+    const isJoined = joinedStatus[eventId];
+    const endpoint = isJoined ? "leave" : "join";
+
+    try {
+      await fetch(`${API_BASE}/api/events/${eventId}/${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId }),
+      });
+
+      // Tornar a comprovar si està apuntat
+      const res = await fetch(`${API_BASE}/api/events/${eventId}/is_joined/${userId}`);
+      const json = await res.json();
+
+      setJoinedStatus((prev) => ({
+        ...prev,
+        [eventId]: json.is_joined,
+      }));
+    } catch (error) {
+      console.error("❌ Error actualitzant participació:", error);
+    } finally {
+      setJoining(null);
+    }
+  };
+  const toggleCommunityMembership = async () => {
+    const endpoint = isMember ? "leave" : "join";
+
+    try {
+      const res = await fetch(`${API_BASE}/api/communities/${communityId}/${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId }),
+      });
+
+      if (!res.ok) throw new Error("Error al actualizar la membresía");
+
+      setIsMember((prev) => !prev);
+    } catch (err) {
+      console.error("❌ Error al cambiar membresía:", err);
+    }
+  };
+
+  if (loading)
     return (
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
         <p>Cargando comunidad...</p>
       </div>
     );
-  }
 
-  // Generate dynamic styles based on the community theme color
-  const headerStyle = {
-    backgroundColor: community.themeColor,
-  };
+  if (!community)
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <p>No se encontró la comunidad.</p>
+      </div>
+    );
 
-  const buttonStyle = {
-    backgroundColor: community.themeColor,
-  };
-
+  const themeColor = community.themeColor || "#1a237e";
+  const headerStyle = { backgroundColor: themeColor };
+  const buttonStyle = { backgroundColor: themeColor };
+  
   return (
     <div className="min-h-screen bg-gray-900 text-gray-100">
-      {/* Community Header */}
+      {/* Encabezado */}
       <div className="relative h-48 md:h-64" style={headerStyle}>
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black opacity-60"></div>
         <div className="container mx-auto px-4 h-full flex items-end pb-6 relative z-10">
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-white">{community.name}</h1>
-            <p className="text-gray-200 mt-2">{community.topic} · {community.members.toLocaleString()} miembros</p>
+            <p className="text-gray-200 mt-2">
+              {community.topic} · {community.members.toLocaleString()} miembros
+            </p>
           </div>
         </div>
       </div>
 
-      {/* Community Content */}
+      {/* Contenido */}
       <div className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Sidebar */}
@@ -166,15 +193,32 @@ export default function CommunityPage({ params }: { params: { communityId: strin
             <div className="bg-gray-800 rounded-lg p-4 mb-6">
               <h2 className="text-xl font-semibold mb-3">Sobre la comunidad</h2>
               <p className="text-gray-300">{community.description}</p>
-              
-              <button 
+
+              <button
+                onClick={toggleCommunityMembership}
                 className="mt-4 w-full py-2 px-4 rounded-md text-white font-medium"
                 style={buttonStyle}
               >
-                Unirse a la comunidad
+                {isMember ? "Salir de la comunidad" : "Unirse a la comunidad"}
               </button>
             </div>
-            
+            <div className="bg-gray-800 rounded-lg p-4">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-2xl font-bold">Eventos de la comunidad</h2>
+
+              {isAdmin && (
+                <Link
+                  href={`/c/${communityId}/create-event`}
+                  className="px-4 py-2 rounded-md text-white font-medium"
+                  style={buttonStyle}
+                >
+                  ➕ Crear evento
+                </Link>
+              )}
+            </div>
+            </div>
+
+
             <div className="bg-gray-800 rounded-lg p-4">
               <h2 className="text-xl font-semibold mb-3">Reglas</h2>
               <ul className="space-y-2 text-gray-300">
@@ -185,54 +229,73 @@ export default function CommunityPage({ params }: { params: { communityId: strin
               </ul>
             </div>
           </div>
-          
-          {/* Main Content - Posts */}
-          <div className="lg:col-span-2">
-            <div className="bg-gray-800 rounded-lg p-4 mb-6">
-              <h2 className="text-xl font-semibold mb-3">Crear publicación</h2>
-              <textarea 
-                className="w-full bg-gray-700 text-white rounded-md p-3 focus:outline-none focus:ring-2 focus:ring-opacity-50"
-                style={{ outlineColor: community.themeColor }}
-                placeholder="¿Qué quieres compartir con la comunidad?"
-                rows={3}
-              ></textarea>
-              <div className="mt-3 flex justify-end">
-                <button 
-                  className="py-2 px-4 rounded-md text-white font-medium"
-                  style={buttonStyle}
-                >
-                  Publicar
-                </button>
-              </div>
-            </div>
-            
-            {/* Posts */}
-            <div className="space-y-4">
-              {community.posts.map(post => (
-                <div key={post.id} className="bg-gray-800 rounded-lg p-4">
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="text-lg font-medium">{post.title}</h3>
-                      <p className="text-sm text-gray-400">Publicado por {post.author} · {new Date(post.date).toLocaleDateString()}</p>
+
+          {/* Contenido principal */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Eventos */}
+            <div className="bg-gray-800 rounded-lg p-4">
+              <h2 className="text-2xl font-bold mb-4">Eventos de la comunidad</h2>
+              {events.length > 0 ? (
+                <div className="space-y-4">
+                  {events.map((event) => (
+                    <div
+                      key={event.id}
+                      className="bg-gray-700 p-4 rounded-lg shadow-md flex flex-col md:flex-row md:items-center gap-4"
+                    >
+                      {event.imageUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={event.imageUrl} alt={event.title} className="w-full md:w-48 h-32 object-cover rounded-lg"/>
+                      )}
+                      <div className="flex-1">
+                        <h3 className="text-lg font-semibold">{event.title}</h3>
+                        <p className="text-gray-400 text-sm">
+                          📍 {event.location || "Ubicación por definir"}
+                        </p>
+                        <p className="text-gray-400 text-sm">
+                          🗓️ {formatDate(event.startDate)} - {formatDate(event.endDate)}
+                        </p>
+                        <p className="text-gray-300 mt-2">{event.description}</p>
+
+                        <button
+                          onClick={() => toggleJoinEvent(event.id)}
+                          disabled={joining === event.id}
+                          className="mt-3 px-4 py-2 rounded-md text-white font-medium"
+                          style={buttonStyle}
+                        >
+                          {joining === event.id
+                            ? "Actualizando..."
+                            : joinedStatus[event.id]
+                            ? "Desapuntarse del evento"
+                            : "Apuntarse al evento"}
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                  <p className="text-gray-300 mb-4">{post.content}</p>
-                  <div className="flex items-center space-x-4 text-sm text-gray-400">
-                    <button className="flex items-center space-x-1 hover:text-white">
-                      <span>👍</span>
-                      <span>{post.likes}</span>
-                    </button>
-                    <button className="flex items-center space-x-1 hover:text-white">
-                      <span>💬</span>
-                      <span>{post.comments} comentarios</span>
-                    </button>
-                    <button className="flex items-center space-x-1 hover:text-white">
-                      <span>↗️</span>
-                      <span>Compartir</span>
-                    </button>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                <p className="text-gray-400">Aún no hay eventos programados.</p>
+              )}
+            </div>
+
+            {/* Posts */}
+            <div className="bg-gray-800 rounded-lg p-4">
+              <h2 className="text-2xl font-bold mb-4">Publicaciones</h2>
+              {community.posts && community.posts.length > 0 ? (
+                <div className="space-y-4">
+                  {community.posts.map((post) => (
+                    <div key={post.id} className="bg-gray-700 rounded-lg p-4">
+                      <h3 className="text-lg font-medium">{post.title}</h3>
+                      <p className="text-sm text-gray-400">
+                        Publicado por {post.author} ·{" "}
+                        {new Date(post.date).toLocaleDateString()}
+                      </p>
+                      <p className="text-gray-300 mt-2">{post.content}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-gray-400">Aún no hay publicaciones.</p>
+              )}
             </div>
           </div>
         </div>
