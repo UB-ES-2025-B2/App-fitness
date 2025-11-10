@@ -26,17 +26,22 @@ export default function LoginPage() {
 
       if (!res.ok) {
         const text = await res.text();
-        let payload: any = null;
+      
+        interface ErrorPayload {
+          error?: string;
+          message?: string;
+        }
+        let payload: ErrorPayload | null = null;
         try {
-          payload = text ? JSON.parse(text) : null;
+          payload = text ? (JSON.parse(text) as ErrorPayload) : null;
         } catch {
           payload = null;
         }
-        if (res.status === 403 && /verificar/i.test(payload?.error || "")) {
+        if (res.status === 403 && /verificar/i.test(payload?.error ?? "")) {
           router.push(`/verify-email-start?email=${encodeURIComponent(email)}`);
           return;
         }
-        throw new Error(payload?.error || payload?.message || text || "Credenciales incorrectas");
+        throw new Error(payload?.error ?? payload?.message ?? text ?? "Credenciales incorrectas");
       }
 
       const data = await res.json();

@@ -32,14 +32,18 @@ export default function VerifyEmailPage() {
         if (data?.user) {
           try {
             localStorage.setItem("ubfitness_user", JSON.stringify(data.user));
-            
-          } catch { }
+          } catch {
+          }
         }
         setMsg("Correo verificado. Redirigiendo...");
-        router.replace("/comunidades");
-      } catch (e: any) {
-        setMsg(e?.message || "Error al verificar el correo");
-      }
+        router.replace("/home");
+        } catch (e) {
+          if (e instanceof Error) {
+            setMsg(e.message || "Error al verificar el correo");
+          } else {
+            setMsg("Error al verificar el correo");
+          }
+        }
     };
 
     run();

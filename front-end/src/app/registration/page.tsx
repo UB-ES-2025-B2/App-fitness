@@ -76,8 +76,12 @@ export default function RegisterPage() {
       });
       if (!res.ok) throw new Error("No se pudo reenviar el correo");
       setVerificationEmailSentAt(new Date().toISOString());
-    } catch (err: any) {
-      setError(err.message || "No se pudo reenviar el correo");
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message || "No se pudo reenviar el correo");
+      } else {
+        setError("No se pudo reenviar el correo");
+      }
     } finally {
       setResendLoading(false);
     }
@@ -123,8 +127,12 @@ export default function RegisterPage() {
       setNeedsVerification(true);
       setVerificationEmailSentAt(new Date().toISOString());
       
-    } catch (err: any) {
-      setError(err.message || "Error al registrarse");
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message || "Error al registrarse");
+      } else {
+        setError("Error al registrarse");
+      }
     } finally {
       setLoading(false);
     }
