@@ -256,18 +256,24 @@ const formatDate = (iso: string) => {
                         </p>
                         <p className="text-gray-300 mt-2">{event.description}</p>
 
-                        <button
-                          onClick={() => toggleJoinEvent(event.id)}
-                          disabled={joining === event.id}
-                          className="mt-3 px-4 py-2 rounded-md text-white font-medium"
-                          style={buttonStyle}
-                        >
-                          {joining === event.id
-                            ? "Actualizando..."
-                            : joinedStatus[event.id]
-                            ? "Desapuntarse del evento"
-                            : "Apuntarse al evento"}
-                        </button>
+                        {isMember ? (
+                          <button
+                            onClick={() => toggleJoinEvent(event.id)}
+                            disabled={joining === event.id}
+                            className="mt-3 px-4 py-2 rounded-md text-white font-medium"
+                            style={buttonStyle}
+                          >
+                            {joining === event.id
+                              ? "Actualizando..."
+                              : joinedStatus[event.id]
+                              ? "Desapuntarse del evento"
+                              : "Apuntarse al evento"}
+                          </button>
+                        ) : (
+                          <p className="mt-3 text-yellow-400 font-medium">
+                            ⚠️ Para apuntarte a los eventos primero debes ser miembro de la comunidad.
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}
