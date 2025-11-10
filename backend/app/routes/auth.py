@@ -1,3 +1,4 @@
+from sqlite3 import IntegrityError
 from flask import Blueprint, request, jsonify, current_app, g
 from flask_mail import Message
 from sqlalchemy.exc import IntegrityError
@@ -8,6 +9,7 @@ from functools import wraps
 
 from .. import db, mail
 from ..models.user_model import User
+from ..utils.auth_utils import token_required
 from ..models.email_verification import EmailVerification
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
@@ -100,8 +102,6 @@ def register():
         return jsonify({"error": "La contraseña debe tener al menos 6 caracteres."}), 400
     if len(name) > 15:
         return jsonify({"error": "El nombre 'name' debe tener como máximo 15 caracteres."}), 400
-    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
-        return jsonify({"error": "La contraseña debe incluir al menos un símbolo especial (por ejemplo: !, @, #, $)."}), 400
 
     if User.query.filter_by(email=email).first():
         return jsonify({"error": "El correo ya está registrado"}), 400
