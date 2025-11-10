@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+// import { getTokens } from "@/app/lib/api"; 
 
 const TOPICS = [
   { id: "futbol", label: "Fútbol" },
@@ -10,7 +11,7 @@ const TOPICS = [
   { id: "montana", label: "Montaña" },
 ];
 
-  type RegisterForm = {
+type RegisterForm = {
   username: string;
   name: string;
   email: string;
@@ -34,24 +35,54 @@ export default function RegisterPage() {
     bio: "",
     ocultar_info: true,
   });
+
   const [topics, setTopics] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const onChange =
-  <K extends keyof RegisterForm>(k: K) =>
-  (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    const target = e.target;
-    const value =
-      target instanceof HTMLInputElement && target.type === "checkbox"
-        ? target.checked
-        : target.value;
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [verificationEmailSentAt, setVerificationEmailSentAt] = useState<string | null>(null);
+  const [resendLoading, setResendLoading] = useState(false);
 
-    setForm((f) => ({ ...f, [k]: value as RegisterForm[K] }));
-  };
+  const onChange =
+    <K extends keyof RegisterForm>(k: K) =>
+      (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const target = e.target;
+        const value =
+          target instanceof HTMLInputElement && target.type === "checkbox"
+            ? target.checked
+            : target.value;
+
+        setForm((f) => ({ ...f, [k]: value as RegisterForm[K] }));
+      };
 
   const toggleTopic = (id: string) =>
     setTopics((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
+
+  const resendVerification = async () => {
+    setError("");
+    setResendLoading(true);
+    try {
+      const base = process.env.NEXT_PUBLIC_API_BASE!;
+      const res = await fetch(`${base}/auth/resend-verification`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: form.email }),
+      });
+      if (!res.ok) throw new Error("No se pudo reenviar el correo");
+      setVerificationEmailSentAt(new Date().toISOString());
+    } catch (err) {
+      if (err instanceof Error) {
+        setError(err.message || "No se pudo reenviar el correo");
+      } else {
+        setError("No se pudo reenviar el correo");
+      }
+    } finally {
+      setResendLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +96,6 @@ export default function RegisterPage() {
       setError("Las contraseñas no coinciden.");
       return;
     }
-    console.log(form)
 
     setLoading(true);
     try {
@@ -77,28 +107,29 @@ export default function RegisterPage() {
           username: form.username,
           name: form.name,
           email: form.email,
-          password: form.password, 
+          password: form.password,
           avatar_url: form.avatar_url || null,
           bio: form.bio || null,
           ocultar_info: !!form.ocultar_info,
-          topics, 
+          topics,
         }),
       });
 
       if (!res.ok) {
         const text = await res.text();
+        console.log(text)
         throw new Error(text || "Error al registrarse");
       }
-
       const data = await res.json();
-      localStorage.setItem("ubfitness_tokens", JSON.stringify({
-        access_token: data.access_token,
-        refresh_token: data.refresh_token
-      }));
-      router.push("/perfil");
-
+      setNeedsVerification(true);
+      setVerificationEmailSentAt(new Date().toISOString());
+      
     } catch (err) {
-      console.error(err);
+      if (err instanceof Error) {
+        setError(err.message || "Error al registrarse");
+      } else {
+        setError("Error al registrarse");
+      }
     } finally {
       setLoading(false);
     }
@@ -137,146 +168,197 @@ export default function RegisterPage() {
 
           <section className="lg:col-span-8">
             <div className="bg-white rounded-lg shadow-lg p-6">
-              <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {needsVerification ? (
                 <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Usuario</label>
-                    <input
-                      value={form.username}
-                      onChange={onChange("username")}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                      placeholder="ej. edu_ramos"
-                      required
-                    />
-                  </div>
+                  <h2 className="text-xl font-semibold text-gray-800">Verificación de correo</h2>
+                  <p className="text-gray-700">
+                    Hemos enviado un correo de verificación a{" "}
+                    <strong>{form.email}</strong>. Abre ese correo y pulsa el enlace para activar tu cuenta.
+                  </p>
 
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Nombre</label>
-                    <input
-                      value={form.name}
-                      onChange={onChange("name")}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                      placeholder="Tu nombre"
-                      required
-                    />
-                  </div>
+                  {verificationEmailSentAt && (
+                    <p className="text-sm text-gray-500">
+                      Correo enviado: {new Date(verificationEmailSentAt).toLocaleString()}
+                    </p>
+                  )}
 
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Email</label>
-                    <input
-                      type="email"
-                      value={form.email}
-                      onChange={onChange("email")}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                      placeholder="tuemail@ejemplo.com"
-                      required
-                    />
-                  </div>
+                  {error && <p className="text-red-600 text-sm">{error}</p>}
 
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Contraseña</label>
-                    <input
-                      type="password"
-                      value={form.password}
-                      onChange={onChange("password")}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                      placeholder="••••••••"
-                      required
-                      minLength={6}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Confirmar contraseña</label>
-                    <input
-                      type="password"
-                      value={form.password2}
-                      onChange={onChange("password2")}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                      placeholder="••••••••"
-                      required
-                      minLength={6}
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Avatar URL (opcional)</label>
-                    <input
-                      value={form.avatar_url}
-                      onChange={onChange("avatar_url")}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                      placeholder="https://..."
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Bio (opcional)</label>
-                    <textarea
-                      value={form.bio}
-                      onChange={onChange("bio")}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 h-24 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                      placeholder="Cuéntanos sobre ti..."
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <input
-                      id="ocultar_info"
-                      type="checkbox"
-                      checked={form.ocultar_info}
-                      onChange={onChange("ocultar_info")}
-                      className="h-4 w-4"
-                    />
-                    <label htmlFor="ocultar_info" className="text-sm text-gray-700">
-                      Ocultar mi información (privado por defecto)
-                    </label>
-                  </div>
-
-                  <div>
-                    <p className="block text-sm font-medium mb-2">Temáticas preferidas</p>
-                    <div className="flex flex-wrap gap-2">
-                      {TOPICS.map((t) => {
-                        const active = topics.includes(t.id);
-                        return (
-                          <button
-                            key={t.id}
-                            type="button"
-                            onClick={() => toggleTopic(t.id)}
-                            className={`px-3 py-1 rounded-full border text-sm transition
-                              ${active ? "bg-blue-600 text-white border-blue-600" : "bg-gray-200 text-gray-800 border-gray-300 hover:bg-gray-300"}`}
-                          >
-                            {t.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="md:col-span-2">
-                  {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition-colors"
-                  >
-                    {loading ? "Creando cuenta..." : "Registrarse"}
-                  </button>
-
-                  <p className="text-center text-sm text-gray-600 mt-3">
-                    ¿Ya tienes cuenta?{" "}
-                    <a href="/login" className="text-blue-600 hover:underline">
-                      Inicia sesión
+                  <div className="flex flex-wrap gap-2">
+                    <a
+                      href="https://mail.google.com/"
+                      target="_blank" rel="noreferrer"
+                      className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                      Abrir mi correo
                     </a>
+
+                    <button
+                      onClick={resendVerification}
+                      disabled={resendLoading}
+                      className="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                    >
+                      {resendLoading ? "Reenviando..." : "Reenviar correo de verificación"}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        setNeedsVerification(false);
+                        setError("");
+                      }}
+                      className="px-4 py-2 border rounded"
+                    >
+                      Volver al formulario
+                    </button>
+                  </div>
+
+                  <p className="text-sm text-gray-600">
+                    Si no recibes el correo, revisa tu carpeta de spam o confirma que la dirección está bien escrita.
                   </p>
                 </div>
-              </form>
+              ) : (
+                <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Usuario</label>
+                      <input
+                        value={form.username}
+                        onChange={onChange("username")}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        placeholder="ej. edu_ramos"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Nombre</label>
+                      <input
+                        value={form.name}
+                        onChange={onChange("name")}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        placeholder="Tu nombre"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Email</label>
+                      <input
+                        type="email"
+                        value={form.email}
+                        onChange={onChange("email")}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        placeholder="tuemail@ejemplo.com"
+                        required
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Contraseña</label>
+                      <input
+                        type="password"
+                        value={form.password}
+                        onChange={onChange("password")}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        placeholder="••••••••"
+                        required
+                        minLength={6}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Confirmar contraseña</label>
+                      <input
+                        type="password"
+                        value={form.password2}
+                        onChange={onChange("password2")}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        placeholder="••••••••"
+                        required
+                        minLength={6}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Avatar URL (opcional)</label>
+                      <input
+                        value={form.avatar_url}
+                        onChange={onChange("avatar_url")}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        placeholder="https://..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Bio (opcional)</label>
+                      <textarea
+                        value={form.bio}
+                        onChange={onChange("bio")}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 h-24 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        placeholder="Cuéntanos sobre ti..."
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="ocultar_info"
+                        type="checkbox"
+                        checked={form.ocultar_info}
+                        onChange={onChange("ocultar_info")}
+                        className="h-4 w-4"
+                      />
+                      <label htmlFor="ocultar_info" className="text-sm text-gray-700">
+                        Ocultar mi información (privado por defecto)
+                      </label>
+                    </div>
+
+                    <div>
+                      <p className="block text-sm font-medium mb-2">Temáticas preferidas</p>
+                      <div className="flex flex-wrap gap-2">
+                        {TOPICS.map((t) => {
+                          const active = topics.includes(t.id);
+                          return (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => toggleTopic(t.id)}
+                              className={`px-3 py-1 rounded-full border text-sm transition
+                                ${active ? "bg-blue-600 text-white border-blue-600" : "bg-gray-200 text-gray-800 border-gray-300 hover:bg-gray-300"}`}
+                            >
+                              {t.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    {error && <p className="text-red-600 text-sm mb-2">{error}</p>}
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition-colors"
+                    >
+                      {loading ? "Creando cuenta..." : "Registrarse"}
+                    </button>
+
+                    <p className="text-center text-sm text-gray-600 mt-3">
+                      ¿Ya tienes cuenta?{" "}
+                      <a href="/login" className="text-blue-600 hover:underline">
+                        Inicia sesión
+                      </a>
+                    </p>
+                  </div>
+                </form>
+              )}
             </div>
           </section>
         </div>
       </div>
     </main>
   );
+
 }
