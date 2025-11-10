@@ -1,14 +1,84 @@
-from sqlite3 import IntegrityError
-from flask import Blueprint, request, jsonify, current_app
-
-from ..utils.auth_utils import token_required
-from ..models.user_model import User
-from .. import db
-import jwt
+from flask import Blueprint, request, jsonify, current_app, g
+from flask_mail import Message
+from sqlalchemy.exc import IntegrityError
 from datetime import datetime, timedelta
+import jwt, hashlib
+import re
+from functools import wraps
+
+from .. import db, mail
+from ..models.user_model import User
+from ..models.email_verification import EmailVerification
 
 bp = Blueprint('auth', __name__, url_prefix='/auth')
 
+def _jwt_secret():
+    secret = current_app.config.get("JWT_SECRET_KEY") or current_app.config.get("SECRET_KEY")
+    return secret or "dev-secret-change-me"
+
+def _encode_token(payload, delta):
+    payload = dict(payload)
+    payload["exp"] = datetime.utcnow() + delta
+    return jwt.encode(payload, _jwt_secret(), algorithm="HS256")
+
+def _decode_token(token):
+    return jwt.decode(token, _jwt_secret(), algorithms=["HS256"])
+
+def _mk_hash(s: str) -> str:
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()
+
+def _mk_access(user_id):  
+    return _encode_token({"user_id": user_id, "type": "access"}, timedelta(hours=1))
+
+def _mk_refresh(user_id): 
+    return _encode_token({"user_id": user_id, "type": "refresh"}, timedelta(days=7))
+
+def _mk_verify(user_id, jti): 
+    return _encode_token({"user_id": user_id, "type": "email_verify", "jti": jti}, timedelta(hours=24))
+
+def _send_verification_email(email: str, link: str):
+    msg = Message(
+        subject="Confirma tu correo – App Fitness",
+        sender=("App Fitness", "no-reply@appfitness.dev"),
+        recipients=[email],
+        body=(
+            "¡Bienvenido/a a App Fitness!\n\n"
+            "Confirma tu correo con este enlace (invalido en 24 h):\n"
+            f"{link}\n\n"
+            "Si no creaste esta cuenta, ignora este mensaje."
+        ),
+    )
+    mail.send(msg)
+
+def _user_is_verified(user: User) -> bool:
+    ev = EmailVerification.query.filter_by(user_id=user.id).first()
+    return bool(ev and ev.verified_at is not None)
+
+def auth_required(fn):
+    @wraps(fn)
+    def _wrapped(*args, **kwargs):
+        if request.method == "OPTIONS":
+            return ("", 204)
+        auth = request.headers.get("Authorization", "")
+        if not auth.startswith("Bearer "):
+            return jsonify({"error": "Falta Authorization Bearer"}), 401
+        token = auth.split(" ", 1)[1].strip()
+        try:
+            payload = _decode_token(token)
+            if payload.get("type") != "access":
+                return jsonify({"error": "Token inválido (no es access)"}), 401
+            user = User.query.get(payload.get("user_id"))
+            if not user:
+                return jsonify({"error": "Usuario no encontrado"}), 404
+            if not _user_is_verified(user):
+                return jsonify({"error": "Correo no verificado"}), 403
+            g.current_user = user
+        except jwt.ExpiredSignatureError:
+            return jsonify({"error": "El token ha caducado"}), 401
+        except jwt.InvalidTokenError:
+            return jsonify({"error": "Token inválido"}), 401
+        return fn(*args, **kwargs)
+    return _wrapped
 
 @bp.route('/register', methods=['POST'])
 def register():
@@ -22,17 +92,17 @@ def register():
     avatar_url = data.get('avatar_url')
     bio = data.get('bio')
     ocultar_info = bool(data.get('ocultar_info', True))
-    topics = data.get('topics') or []  # se guardan en preferences (JSON)
+    topics = data.get('topics') or []  
 
-    # Validaciones mínimas
     if not username or not name or not email or not password:
         return jsonify({"error": "Faltan campos: username, name, email y password son obligatorios."}), 400
     if len(password) < 6:
         return jsonify({"error": "La contraseña debe tener al menos 6 caracteres."}), 400
     if len(name) > 15:
         return jsonify({"error": "El nombre 'name' debe tener como máximo 15 caracteres."}), 400
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        return jsonify({"error": "La contraseña debe incluir al menos un símbolo especial (por ejemplo: !, @, #, $)."}), 400
 
-    # Unicidad explícita (evita 500 feos antes del commit)
     if User.query.filter_by(email=email).first():
         return jsonify({"error": "El correo ya está registrado"}), 400
     if User.query.filter_by(username=username).first():
@@ -49,34 +119,113 @@ def register():
             preferences=topics,
         )
         user.set_password(password)
-
         db.session.add(user)
+        db.session.commit() 
+
+        ev = EmailVerification.query.filter_by(user_id=user.id).first()
+        if not ev:
+            ev = EmailVerification(user_id=user.id)
+            db.session.add(ev)
+
+        jti = f"{user.id}-{datetime.utcnow().timestamp()}"
+        ev.token_hash = _mk_hash(jti)
+        ev.last_sent_at = datetime.utcnow()
+
         db.session.commit()
+
+        token = _mk_verify(user.id, jti)
+        frontend_base = current_app.config.get("FRONTEND_BASE_URL")
+        verify_url = f"{frontend_base.rstrip('/')}/verify-email?token={token}"
+        _send_verification_email(user.email, verify_url)
 
     except IntegrityError:
         db.session.rollback()
         return jsonify({"error": "Usuario o email ya registrados"}), 400
 
-    access_token = jwt.encode({
-        "user_id": user.id, "type": "access",
-        "exp": datetime.utcnow() + timedelta(hours=1)
-    }, current_app.config['SECRET_KEY'], algorithm="HS256")
-    refresh_token = jwt.encode({
-        "user_id": user.id, "type": "refresh",
-        "exp": datetime.utcnow() + timedelta(days=7)
-    }, current_app.config['SECRET_KEY'], algorithm="HS256")
-
     return jsonify({
-        "message": "Usuario creado correctamente",
-        "user": user.to_profile_dict(), 
-        "access_token": access_token,
-        "refresh_token": refresh_token
-    }), 201
+    "message": "Usuario creado. Revisa tu correo para confirmar tu email.",
+    "needs_verification": True,
+    "verification_email_sent_at": ev.last_sent_at.isoformat() + "Z"
+}), 201
+
+@bp.route('/verify-email', methods=['GET'])
+def verify_email():
+    token = (request.args.get('token') or '').strip()
+    if not token:
+        return jsonify({"error": "Token de verificación faltante"}), 400
+    try:
+        decoded = _decode_token(token)
+        if decoded.get("type") != "email_verify":
+            return jsonify({"error": "Token inválido (no es de verificación)"}), 400
+
+        user_id = decoded.get("user_id")
+        jti = decoded.get("jti") or ""
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({"error": "Usuario no encontrado"}), 404
+
+        ev = EmailVerification.query.filter_by(user_id=user.id).first()
+        if not ev:
+            return jsonify({"error": "Estado de verificación no encontrado"}), 400
+
+        if ev.token_hash and ev.token_hash != _mk_hash(jti):
+            return jsonify({"error": "Este enlace ya no es válido."}), 400
+
+        if not ev.verified_at:
+            ev.verified_at = datetime.utcnow()
+            ev.token_hash = None
+            db.session.commit()
+
+        access = _mk_access(user.id)
+        refresh = _mk_refresh(user.id)
+        return jsonify({
+            "message": "Correo verificado correctamente",
+            "access_token": access,
+            "refresh_token": refresh,
+            "user": getattr(user, "to_profile_dict", lambda: {
+                "id": user.id, "name": user.name, "email": user.email, "username": user.username
+            })()
+        }), 200
+
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "El token de verificación ha caducado"}), 400
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Token de verificación inválido"}), 400
+
+@bp.route('/resend-verification', methods=['POST'])
+def resend_verification():
+    data = request.get_json() or {}
+    email = (data.get("email") or "").strip().lower()
+    if not email:
+        return jsonify({"error": "Email requerido"}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return jsonify({"message": "Si existe una cuenta con ese correo, hemos reenviado la verificación."}), 200
+
+    ev = EmailVerification.query.filter_by(user_id=user.id).first()
+    if ev and ev.verified_at:
+        return jsonify({"message": "Tu correo ya está verificado."}), 200
+
+    if not ev:
+        ev = EmailVerification(user_id=user.id)
+        db.session.add(ev)
+
+    jti = f"{user.id}-{datetime.utcnow().timestamp()}"
+    ev.token_hash = _mk_hash(jti)
+    ev.last_sent_at = datetime.utcnow()
+    db.session.commit()
+
+    token = _mk_verify(user.id, jti)
+    frontend_base = current_app.config.get("FRONTEND_BASE_URL")
+    verify_url = f"{frontend_base.rstrip('/')}/verify-email?token={token}"
+    _send_verification_email(user.email, verify_url)
+
+    return jsonify({"message": "Correo de verificación reenviado."}), 200
 
 @bp.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
-    print(data)
     secret = current_app.config.get("JWT_SECRET_KEY") or current_app.config.get("SECRET_KEY")
     if not isinstance(secret, (str, bytes)) or not secret:
         secret = "dev-secret-change-me"  
@@ -88,6 +237,9 @@ def login():
         if not user2 or not user2.check_password(password):
             return jsonify({"error": "Credenciales inválidas"}), 401
         user = user2
+    if not _user_is_verified(user):
+        return jsonify({"error": "Debes verificar tu correo antes de iniciar sesión."}), 403
+    
     token = jwt.encode(
         {"user_id": user.id, "type": "access",
         "exp": datetime.utcnow() + timedelta(hours=1)},
@@ -137,7 +289,7 @@ def refresh():
         return jsonify({"error": "El refresh token ha caducado"}), 401
     except jwt.InvalidTokenError:
         return jsonify({"error": "Token inválido"}), 401
-    
+
 def _get_current_user():
     """Obtiene el usuario a partir del Bearer access token."""
     auth = request.headers.get("Authorization", "")
@@ -161,7 +313,7 @@ def _get_current_user():
         return None, ("El token ha caducado", 401)
     except jwt.InvalidTokenError:
         return None, ("Token inválido", 401)
-
+    
 @bp.route('/me', methods=['GET', 'PATCH'])
 def me():
     user, err = _get_current_user()
@@ -212,6 +364,9 @@ def me():
         if not isinstance(prefs, list):
             return jsonify({"error": "preferences debe ser una lista"}), 400
         user.preferences = prefs
+
+    if not _user_is_verified(user):
+            return jsonify({"error": "Correo no verificado"}), 403
 
     db.session.commit()
 

@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
   const router = useRouter();
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -26,7 +25,18 @@ export default function LoginPage() {
       });
 
       if (!res.ok) {
-        throw new Error("Credenciales incorrectas");
+        const text = await res.text();
+        let payload: any = null;
+        try {
+          payload = text ? JSON.parse(text) : null;
+        } catch {
+          payload = null;
+        }
+        if (res.status === 403 && /verificar/i.test(payload?.error || "")) {
+          router.push(`/verify-email-start?email=${encodeURIComponent(email)}`);
+          return;
+        }
+        throw new Error(payload?.error || payload?.message || text || "Credenciales incorrectas");
       }
 
       const data = await res.json();
@@ -35,17 +45,16 @@ export default function LoginPage() {
       localStorage.setItem(
         "ubfitness_tokens",
         JSON.stringify({
-          access_token: data.access_token || data.token, // por si tu back devolviera token
+          access_token: data.access_token || null,
           refresh_token: data.refresh_token || null,
         })
       );
-
-      // guarda el usuario por comodidad
       localStorage.setItem("ubfitness_user", JSON.stringify(data.user));
+      localStorage.setItem("ubfitness_user_id", data.user.id);
 
-      router.push("/home");
-    } catch (err: any) {
-      setError(err.message || "Error al iniciar sesión");
+      router.push("/comunidades");
+    } catch (err) {
+      console.error("Error cargando comunidad:", err);
     } finally {
       setLoading(false);
     }
