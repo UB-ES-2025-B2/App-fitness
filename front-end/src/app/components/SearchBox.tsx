@@ -56,7 +56,7 @@ export default function SearchBox() {
     setOpen(false);
     setActive(-1);
     if (it.kind === "community") router.push(`/c/${it.slug ?? it.id}`);
-    else router.push(`/u/${it.username}`);
+    else router.push(`/usuario/${it.id}`);
   };
 
   // Fetch amb debounce
@@ -157,10 +157,7 @@ export default function SearchBox() {
                 it.kind === "community"
                   ? it.name
                   : it.name || it.username;
-              const href =
-                it.kind === "community"
-                  ? `/c/${it.slug ?? it.id}`
-                  : `/u/${it.username}`;
+              const href = it.kind === "community" ? `/c/${it.slug ?? it.id}` : `/usuario/${it.id}`;
 
               return (
                 <li key={i} role="option" aria-selected={isActive}>
