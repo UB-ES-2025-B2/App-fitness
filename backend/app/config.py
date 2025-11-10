@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-# import cloudinary
+import cloudinary
 load_dotenv()
 
 class Config:
@@ -16,19 +16,19 @@ class Config:
     MAIL_DEFAULT_SENDER = ("App Fitness", "no-reply@appfitness.com")
     FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
 
-# cloudinary.config(
-#     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
-#     api_key=os.getenv("CLOUDINARY_API_KEY"),
-#     api_secret=os.getenv("CLOUDINARY_API_SECRET"),
-#     secure=True
-# )
+cloudinary.config(
+    cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),
+    api_key=os.getenv("CLOUDINARY_API_KEY"),
+    api_secret=os.getenv("CLOUDINARY_API_SECRET"),
+    secure=True
+)
 
 if __name__ == "__main__":
     print("CLOUDINARY CONFIG TEST ✅")
-    # import cloudinary.uploader
+    import cloudinary.uploader
 
     try:
-        # result = cloudinary.uploader.upload("app/test.png")
+        result = cloudinary.uploader.upload("app/test.png")
         print("✅ Imatge pujada correctament!")
         print("URL segura:", result.get("secure_url"))
     except Exception as e:

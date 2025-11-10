@@ -19,21 +19,17 @@ def create_app():
     # Importa models perquè Alembic els detecti
     from app.models import User, Post, follow
     from app.routes.auth import bp as auth_bp
-    # from app.routes import upload
+    from app.routes import upload
     migrate.init_app(app, db)
 
     # Importa y registra blueprints con prefijo
-    # from app.routes import users, posts
-    # from app.routes import users, posts, comunity, event
-    from app.routes import users, posts
-
-
+    from app.routes import users, posts, comunity, event
     app.register_blueprint(users.bp)
     app.register_blueprint(posts.bp)
-    # app.register_blueprint(comunity.bp)
-    # app.register_blueprint(event.bp)
+    app.register_blueprint(comunity.bp)
+    app.register_blueprint(event.bp)
     app.register_blueprint(auth_bp)
-    # app.register_blueprint(upload.bp)
+    app.register_blueprint(upload.bp)
 
     
     #  HOME VISUAL UB FITNESS 
