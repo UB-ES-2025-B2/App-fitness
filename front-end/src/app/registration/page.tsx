@@ -6,12 +6,9 @@ import { useRouter } from "next/navigation";
 // import { getTokens } from "@/app/lib/api"; 
 
 const TOPICS = [
-  { id: "running", label: "Running" },
-  { id: "yoga", label: "Yoga" },
-  { id: "cross_training", label: "Cross-training" },
-  { id: "mujeres", label: "Mujeres" },
-  { id: "tercer_edad", label: "Tercera edad" },
-  { id: "principiantes", label: "Principiantes" },
+  { id: "futbol", label: "Fútbol" },
+  { id: "basket", label: "Baloncesto" },
+  { id: "montana", label: "Montaña" },
 ];
 
 type RegisterForm = {

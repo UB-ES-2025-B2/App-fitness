@@ -20,6 +20,8 @@ def create_app():
     from app.models import User, Post, follow
     from app.routes.auth import bp as auth_bp
     from app.routes import upload
+    from .routes.search import bp as search_bp
+
     migrate.init_app(app, db)
 
     # Importa y registra blueprints con prefijo
@@ -30,6 +32,8 @@ def create_app():
     app.register_blueprint(event.bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(upload.bp)
+    app.register_blueprint(search_bp)
+
 
     
     #  HOME VISUAL UB FITNESS 
