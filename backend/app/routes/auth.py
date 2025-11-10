@@ -192,8 +192,10 @@ def verify_email():
     except jwt.InvalidTokenError:
         return jsonify({"error": "Token de verificación inválido"}), 400
 
-@bp.route('/resend-verification', methods=['POST'])
+@bp.route('/resend-verification', methods=['POST', 'OPTIONS'])
 def resend_verification():
+    if request.method == "OPTIONS":
+        return ("", 204)
     data = request.get_json() or {}
     email = (data.get("email") or "").strip().lower()
     if not email:
