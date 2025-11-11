@@ -44,34 +44,17 @@ export default function VerifyEmailStartClient({ email }: { email: string }) {
           >
             {loading ? "Enviando…" : "Enviar/reenviar correo"}
           </button>
-
-          <a
-            href="https://mail.google.com/"
-            target="_blank"
-            rel="noreferrer"
-            className="px-4 py-2 border rounded"
-          >
+          <a href="https://mail.google.com/" target="_blank" rel="noreferrer" className="px-4 py-2 border rounded">
             Abrir Gmail
           </a>
-
-          <button
-            onClick={() => router.replace("/login")}
-            className="px-4 py-2 border rounded"
-          >
+          <button onClick={() => router.replace("/login")} className="px-4 py-2 border rounded">
             Volver a login
           </button>
         </div>
 
-        {sentAt && (
-          <p className="text-sm mt-3">
-            Correo enviado: {new Date(sentAt).toLocaleString()}
-          </p>
-        )}
+        {sentAt && <p className="text-sm mt-3">Correo enviado: {new Date(sentAt).toLocaleString()}</p>}
         {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
-
-        <p className="text-sm text-gray-500 mt-4">
-          Revisa spam/promociones si no aparece en la bandeja de entrada.
-        </p>
+        <p className="text-sm text-gray-500 mt-4">Revisa spam/promociones si no aparece en la bandeja de entrada.</p>
       </div>
     </main>
   );
