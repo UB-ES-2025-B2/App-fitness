@@ -47,7 +47,7 @@ def _send_verification_email(to_email, verify_url):
         return
     #change from email to allow for sneding to other emails
     payload = {
-        "from": "UB Fitness <migrateveo.com>",
+        "from": "UB Fitness <noreply@migrateveo.com>",
         "to": [to_email],
         "subject": "Verifica tu correo en UB Fitness",
         "html": f"""
