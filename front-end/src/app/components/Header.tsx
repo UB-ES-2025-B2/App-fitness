@@ -1,49 +1,41 @@
-// src/app/components/Header.tsx
 "use client";
 import Link from "next/link";
 import { useTopic, Topic } from "./TopicContext";
+import SearchBox from "./SearchBox";
 
 const TOPICS: Topic[] = ["Todos", "Fútbol", "Básquet", "Montaña"];
 
 export default function Header() {
-  const { topic, setTopic } = useTopic();
-    return (
-      <header className="fixed top-0 left-0 w-full bg-white shadow-sm z-50">
-        <nav className="max-w-4xl mx-auto px-6 py-3 flex justify-between items-center">
-          {/* Logo -> Link a inicio */}
-          <Link
-            href="/"
-            aria-label="Ir al inicio"
-            className="text-xl font-semibold text-blue-600 hover:text-blue-700 transition focus:outline-none focus:ring-2 focus:ring-blue-400 rounded"
-          >
-            UB Fitness
-          </Link>
-          <form role="search" className="flex-1 max-w-md ml-auto" onSubmit={(e) => e.preventDefault()}>
-          <div className="relative">
-            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2">
-              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M21 21l-3.8-3.8M10.5 18a7.5 7.5 0 1 1 0-15 7.5 7.5 0 0 1 0 15z"
-                  fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
-            <input
-              type="search"
-              placeholder="Buscar personas, comunidades o posts…"
-              className="w-full pl-10 pr-3 py-2 text-sm rounded-full border border-gray-200 bg-gray-50 focus:bg-white focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none"
-            />
-          </div>
-        </form>
-  
-          {/* Icono usuario -> Link a perfil */}
-          <Link
-            href="/perfil"
-            aria-label="Ver perfil"
-            className="w-9 h-9 bg-gray-200 rounded-full flex items-center justify-center cursor-pointer hover:ring-2 hover:ring-blue-400 transition"
-          >
-            <span className="text-gray-700 font-semibold">N</span>
-          </Link>
-        </nav>
-      </header>
-    );
-  }
-  
+  const { topic } = useTopic();
+
+  return (
+    <header className="fixed top-0 left-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm">
+      <nav className="max-w-5xl mx-auto px-5 sm:px-8 py-3 flex items-center justify-between">
+        {/* Logo */}
+        <Link
+          href="/"
+          aria-label="Ir al inicio"
+          className="text-2xl font-extrabold text-blue-600 tracking-tight hover:text-blue-700 transition-colors"
+        >
+          UB<span className="text-gray-800"> Fitness</span>
+        </Link>
+
+        {/* Buscador */}
+        <div className="hidden sm:block flex-1 max-w-md mx-2">
+          <SearchBox />
+        </div>
+
+        {/* Icono de perfil */}
+        <Link
+          href="/perfil"
+          aria-label="Ver perfil"
+          className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 
+                     flex items-center justify-center shadow-sm hover:shadow-md transition 
+                     hover:scale-105 active:scale-95 ring-1 ring-blue-300/40"
+        >
+          <span className="text-blue-700 font-semibold">N</span>
+        </Link>
+      </nav>
+    </header>
+  );
+}

@@ -1,12 +1,14 @@
-// src/components/Feed.tsx
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Topic, useTopic } from "./TopicContext";
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 
 type Post = {
   id: number;
   user: string;
+  userId?: number;
   topic: string;
   text: string;
   image?: string;
@@ -23,107 +25,110 @@ type BackendPost = {
 
 const TOPICS: Topic[] = ["Todos", "Fútbol", "Básquet", "Montaña"];
 
-// ---- helper de normalización: BackendPost -> Post
 function normalizePost(p: BackendPost): Post {
+  // Pot venir com string o com objecte
+  const userName =
+    typeof p.user === "string"
+      ? p.user
+      : p.user?.name || p.user?.username || "Usuari";
+
+  const userId = typeof p.user === "object" && p.user?.id ? p.user.id : undefined;
+
   return {
     id: p.id,
     text: p.text,
-    topic: (p.topic ?? "Todos") as string,
+    topic: (p.topic ?? "General") as string,
     image: p.image ?? undefined,
-    user: (p.user?.name && p.user.name.trim()) || p.user?.username || "Usuario",
+    user: userName,
+    userId,
   };
 }
+
 
 export default function Feed() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(true); // <- controla si hay más contenido
   const { topic, setTopic } = useTopic();
 
   useEffect(() => {
-  const fetchPosts = async () => {
-    try {
-      const res = await fetch("http://127.0.0.1:5000/api/posts/");
-      if (!res.ok) throw new Error("Error cargando posts");
-      const data: BackendPost[] = await res.json();
-      setPosts(data.map(normalizePost));
-      setHasMore(false); // de momento no hay paginación
-    } catch (err: any) {
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const fetchPosts = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/posts/`);
+        if (!res.ok) throw new Error("Error cargando posts");
+        const data: BackendPost[] = await res.json();
+        setPosts(data.map(normalizePost));
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  fetchPosts();
+    fetchPosts();
 
-  // Suscripción a nuevos posts
-  const onNewPost = (e: Event) => {
-    const detail = (e as CustomEvent<any>).detail;
-    setPosts((prev) => [detail, ...prev]);
-  };
-  window.addEventListener("new-post", onNewPost as EventListener);
+    const onNewPost = (e: Event) => {
+      const detail = (e as CustomEvent<Post>).detail;
+      setPosts((prev) => [detail, ...prev]);
+    };
+    window.addEventListener("new-post", onNewPost as EventListener);
+    return () => window.removeEventListener("new-post", onNewPost as EventListener);
+  }, []);
 
-  return () => {
-    window.removeEventListener("new-post", onNewPost as EventListener);
-  };
-}, []);
-
-
-  if (loading) return <p className="text-center mt-10">Cargando publicaciones...</p>;
+  if (loading) return <p className="text-center mt-10">Carregant publicacions...</p>;
   if (error) return <p className="text-center text-red-500 mt-10">{error}</p>;
   if (posts.length === 0)
-    return <p className="text-center mt-10 text-gray-600">No hay contenido que mostrar.</p>;
+    return <p className="text-center mt-10 text-gray-500 dark:text-gray-400">No hi ha contingut per mostrar.</p>;
 
-  const visible = posts.filter(p => topic === "Todos" || p.topic === topic);
-
-  if (visible.length === 0)
-    return <p className="text-center mt-10 text-gray-600">No hay contenido que mostrar.</p>;
+  const visible = posts.filter((p) => topic === "Todos" || p.topic === topic);
 
   return (
-    <section className="w-full py-0">
-
-      {/* Barra superior con desplegable */}
+    <section className="w-full py-4 fade-in">
       <div className="mb-4 flex items-center justify-between">
-        <TopicDropdown
-          topic={topic}
-          setTopic={setTopic}
-          topics={TOPICS}
-        />
+        <TopicDropdown topic={topic} setTopic={setTopic} topics={TOPICS} />
       </div>
 
-      {posts.map((post) => (
-        <article key={post.id} className="bg-white shadow-md rounded-2xl p-4 mb-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-blue-600">{post.user}</h2>
-            <span className="text-sm text-gray-500">{post.topic}</span>
-          </div>
-          <p className="mt-2 text-gray-700">{post.text}</p>
-          {post.image && (
-            <img
-              src={post.image}
-              alt={post.topic}
-              className="mt-3 rounded-xl w-full object-cover h-56"
-            />
-          )}
-        </article>
-      ))}
+      <div className="space-y-6">
+        {visible.map((post) => (
+          <article
+            key={post.id}
+            className="bg-white dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700
+                       rounded-2xl p-5 shadow-sm hover:shadow-lg transition-shadow duration-300"
+          >
+            <div className="flex items-center justify-between mb-2">
+              {post.userId ? (
+                <Link 
+                  href={`/usuario/${post.userId}`}
+                  className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  {post.user}
+                </Link>
+              ) : (
+                <h2 className="font-semibold text-blue-600 dark:text-blue-400">{post.user}</h2>
+              )}
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                {post.topic}
+              </span>
+            </div>
 
-      {/* Mensaje de fin del feed */}
-      {!hasMore && (
-        <div className="mt-6 mb-2 text-center text-sm text-gray-500" role="status" aria-live="polite">
-          <div className="flex items-center justify-center gap-2">
-            <span className="inline-block h-[1px] w-10 bg-gray-200" />
-            <span>No hay más publicaciones</span>
-            <span className="inline-block h-[1px] w-10 bg-gray-200" />
-          </div>
-        </div>
-      )}
+            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{post.text}</p>
+
+            {post.image && (
+              <div className="mt-3 overflow-hidden rounded-xl">
+                <img
+                  src={post.image}
+                  alt={post.topic}
+                  className="w-full h-64 object-cover transform hover:scale-[1.02] transition-transform duration-500"
+                />
+              </div>
+            )}
+          </article>
+        ))}
+      </div>
     </section>
   );
+}
 
-  /** Desplegable accesible de selección de temática */
 function TopicDropdown({
   topic,
   setTopic,
@@ -136,7 +141,6 @@ function TopicDropdown({
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
 
-  // Cerrar al hacer click fuera
   useEffect(() => {
     const onDocClick = (e: MouseEvent) => {
       if (!ref.current) return;
@@ -157,11 +161,19 @@ function TopicDropdown({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-2 px-3 py-2 rounded-full border bg-white shadow-sm hover:bg-gray-50"
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 dark:border-slate-600 
+                   bg-white dark:bg-slate-700/60 shadow-sm hover:bg-blue-50 dark:hover:bg-slate-600 
+                   text-sm transition-all"
       >
-        <span className="text-sm">Temática:</span>
-        <span className="text-sm font-medium text-blue-700">{topic}</span>
-        <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" className={`transition ${open ? "rotate-180" : ""}`}>
+        <span>Temàtica:</span>
+        <span className="font-medium text-blue-700 dark:text-blue-400">{topic}</span>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+          className={`transition ${open ? "rotate-180" : ""}`}
+        >
           <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
       </button>
@@ -169,8 +181,9 @@ function TopicDropdown({
       {open && (
         <ul
           role="listbox"
-          aria-label="Seleccionar temática"
-          className="absolute z-40 mt-2 w-56 bg-white border rounded-xl shadow-lg p-1"
+          aria-label="Seleccionar temàtica"
+          className="absolute z-40 mt-2 w-56 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 
+                     rounded-xl shadow-xl p-1 backdrop-blur-sm"
         >
           {topics.map((t) => {
             const active = t === topic;
@@ -180,8 +193,10 @@ function TopicDropdown({
                   role="option"
                   aria-selected={active}
                   onClick={() => onSelect(t)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-blue-50 ${
-                    active ? "bg-blue-50 text-blue-700 font-medium" : "text-gray-700"
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                    active
+                      ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium"
+                      : "hover:bg-blue-50 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200"
                   }`}
                 >
                   {t}
@@ -194,6 +209,3 @@ function TopicDropdown({
     </div>
   );
 }
-
-}
-
