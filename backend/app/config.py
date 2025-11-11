@@ -14,7 +14,7 @@ class Config:
     MAIL_USERNAME = "erramoseduardo@gmail.com"
     MAIL_PASSWORD = "eptb jupr ffou lzgs" 
     MAIL_DEFAULT_SENDER = ("App Fitness", "no-reply@appfitness.com")
-    FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
+    FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "https://app-fitness-3.onrender.com")
 
 cloudinary.config(
     cloud_name=os.getenv("CLOUDINARY_CLOUD_NAME"),

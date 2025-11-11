@@ -47,7 +47,7 @@ def _send_verification_email(to_email, verify_url):
         return
     #change from email to allow for sneding to other emails
     payload = {
-        "from": "UB Fitness <onboarding@resend.dev>",
+        "from": "UB Fitness <migrateveo.com>",
         "to": [to_email],
         "subject": "Verifica tu correo en UB Fitness",
         "html": f"""
@@ -222,6 +222,7 @@ def verify_email():
         "https://app-fitness-1-pr-61.onrender.com",  
         "https://app-fitness-1.onrender.com", 
         "https://app-fitness-3.onrender.com", 
+        "https://app-fitness-2.onrender.com", 
     ],
     methods=["POST", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"]
