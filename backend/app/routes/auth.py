@@ -1,14 +1,16 @@
 from sqlite3 import IntegrityError
 from flask import Blueprint, request, jsonify, current_app, g
-from flask_mail import Message
+# from flask_mail import Message
 from sqlalchemy.exc import IntegrityError
 from flask_cors import cross_origin
 from datetime import datetime, timedelta
 import jwt, hashlib
 import re
 from functools import wraps
+import os
+import requests
 
-from .. import db, mail
+from .. import db
 from ..models.user_model import User
 from ..utils.auth_utils import token_required
 from ..models.email_verification import EmailVerification
@@ -39,19 +41,37 @@ def _mk_refresh(user_id):
 def _mk_verify(user_id, jti): 
     return _encode_token({"user_id": user_id, "type": "email_verify", "jti": jti}, timedelta(hours=24))
 
-def _send_verification_email(email: str, link: str):
-    msg = Message(
-        subject="Confirma tu correo – App Fitness",
-        sender=("App Fitness", "no-reply@appfitness.dev"),
-        recipients=[email],
-        body=(
-            "¡Bienvenido/a a App Fitness!\n\n"
-            "Confirma tu correo con este enlace (invalido en 24 h):\n"
-            f"{link}\n\n"
-            "Si no creaste esta cuenta, ignora este mensaje."
-        ),
-    )
-    mail.send(msg)
+def _send_verification_email(to_email, verify_url):
+    api_key = os.getenv("RESEND_API_KEY")
+    if not api_key:
+        current_app.logger.warning("RESEND_API_KEY not set; skipping email send.")
+        return
+
+    payload = {
+        "from": "UB Fitness <noreply@resend.dev>",
+        "to": [to_email],
+        "subject": "Verifica tu correo en UB Fitness",
+        "html": f"""
+            <p>¡Bienvenido/a!</p>
+            <p>Haz clic en el siguiente enlace para verificar tu cuenta:</p>
+            <p><a href="{verify_url}">{verify_url}</a></p>
+        """,
+    }
+
+    try:
+        res = requests.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=10,
+        )
+        res.raise_for_status()
+        current_app.logger.info("Verification email sent to %s", to_email)
+    except Exception as e:
+        current_app.logger.exception("Failed to send verification email")
 
 def _user_is_verified(user: User) -> bool:
     ev = EmailVerification.query.filter_by(user_id=user.id).first()
@@ -199,6 +219,7 @@ def verify_email():
         "http://localhost:3000",
         "https://app-fitness-1-pr-61.onrender.com",  
         "https://app-fitness-1.onrender.com", 
+        "https://app-fitness-3.onrender.com", 
     ],
     methods=["POST", "OPTIONS"],
     allow_headers=["Content-Type", "Authorization"]
