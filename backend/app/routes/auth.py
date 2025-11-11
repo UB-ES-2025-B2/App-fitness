@@ -1,6 +1,5 @@
 from sqlite3 import IntegrityError
 from flask import Blueprint, request, jsonify, current_app, g
-# from flask_mail import Message
 from sqlalchemy.exc import IntegrityError
 from flask_cors import cross_origin
 from datetime import datetime, timedelta
@@ -9,7 +8,7 @@ import re
 from functools import wraps
 import os
 import requests
-
+ 
 from .. import db
 from ..models.user_model import User
 from ..utils.auth_utils import token_required
@@ -46,9 +45,9 @@ def _send_verification_email(to_email, verify_url):
     if not api_key:
         current_app.logger.warning("RESEND_API_KEY not set; skipping email send.")
         return
-
+    #change from email to allow for sneding to other emails
     payload = {
-        "from": "UB Fitness <noreply@resend.dev>",
+        "from": "UB Fitness <onboarding@resend.dev>",
         "to": [to_email],
         "subject": "Verifica tu correo en UB Fitness",
         "html": f"""
@@ -68,6 +67,9 @@ def _send_verification_email(to_email, verify_url):
             json=payload,
             timeout=10,
         )
+        #added console log to check whats wrong
+        if res.status_code >= 400:
+            current_app.logger.error("Resend error %s: %s", res.status_code, res.text)
         res.raise_for_status()
         current_app.logger.info("Verification email sent to %s", to_email)
     except Exception as e:
@@ -271,7 +273,11 @@ def login():
             return jsonify({"error": "Credenciales inválidas"}), 401
         user = user2
     if not _user_is_verified(user):
-        return jsonify({"error": "Debes verificar tu correo antes de iniciar sesión."}), 403
+        return jsonify({
+            "error": "Debes verificar tu correo antes de iniciar sesión.",
+            "needs_verification": True,
+            "email": user.email
+        }), 403
     
     token = jwt.encode(
         {"user_id": user.id, "type": "access",

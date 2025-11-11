@@ -38,6 +38,7 @@ export default function LoginPage() {
           payload = null;
         }
         if (res.status === 403 && /verificar/i.test(payload?.error ?? "")) {
+          setError("Tu correo no está verificado. Redirigiendo para verificar…");
           router.push(`/verify-email-start?email=${encodeURIComponent(email)}`);
           return;
         }
