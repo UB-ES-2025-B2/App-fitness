@@ -72,14 +72,12 @@ jobs:
           echo "Frontend URL: $DEPLOY_URL"
           echo "Backend URL:  $BACKEND_URL"
 
-      - name: Wait for frontend & backend deploys
+      - name: Wait for frontend deploy
         run: |
-          python wait_for_deploy.py "$DEPLOY_URL" &
-          FRONTEND_PID=$!
-          python wait_for_deploy.py "$BACKEND_URL" &
-          BACKEND_PID=$!
-          wait $FRONTEND_PID
-          wait $BACKEND_PID
+          python wait_for_deploy.py "$DEPLOY_URL"
+      - name: Wait for backend deploy
+        run: |
+          python wait_for_deploy.py "$BACKEND_URL"
 
       - name: Run integration tests
         run: |
