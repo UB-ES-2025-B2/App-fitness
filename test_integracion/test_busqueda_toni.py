@@ -12,7 +12,7 @@ def test_busqueda_usuario(driver):
     login.abrir()
     time.sleep(1)
 
-    login.login("toni@example.com", "123456")
+    login.login("toni@example.com", "app-fitness1")
     time.sleep(2)
 
 
