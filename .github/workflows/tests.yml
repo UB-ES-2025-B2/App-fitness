@@ -27,7 +27,7 @@ jobs:
 
       - name: Run unit tests
         run: |
-          pytest -v --html=unit-report.html --self-contained-html
+          pytest test -v --html=unit-report.html --self-contained-html
 
       - name: Upload unit test report
         uses: actions/upload-artifact@v4
