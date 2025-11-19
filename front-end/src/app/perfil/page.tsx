@@ -56,6 +56,23 @@ const MY_POSTS: Post[] = [
   { id: 102, text: "Partidillo con amigos ⚽️", topic: "Fútbol", date: "2025-10-07", image: './images/pachanga.png' },
 ];
 
+type ApiPost = {
+  id: number;
+  text: string;
+  image?: string | null;
+  topic?: string;
+  created_at: string;
+};
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
+
+async function fetchUserPosts(userId: number): Promise<ApiPost[]> {
+  const res = await authFetch(`${API_BASE}/api/users/${userId}/posts`);
+  if (!res.ok) return [];
+  return res.json();
+}
+
+
 const MY_FOLLOWERS: User[] = [
   { id: "u1", name: "LauraFit", username: "laura.fit" },
   { id: "u2", name: "MaxRunner", username: "max.runner" },
@@ -103,6 +120,9 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile>(INITIAL_PROFILE);
   const [loading, setLoading] = useState(true);
 
+  const [posts, setPosts] = useState<ApiPost[]>([]);
+  const [postsLoading, setPostsLoading] = useState(true);
+
   useEffect(() => {
     // si no hay tokens -> a /login
     if (!getTokens()) {
@@ -134,6 +154,22 @@ export default function ProfilePage() {
           : [],
         ocultarInfo: typeof me.ocultar_info === "boolean" ? me.ocultar_info : true,
       });
+
+      if (me.id) {
+        setPostsLoading(true);
+        try {
+          const userPosts = await fetchUserPosts(me.id);
+          setPosts(userPosts);
+        } catch (e) {
+          console.error(e);
+          setPosts([]);
+        } finally {
+          setPostsLoading(false);
+        }
+      } else {
+        setPosts([]);
+        setPostsLoading(false);
+      }
 
       setLoading(false);
     })();
@@ -190,7 +226,7 @@ export default function ProfilePage() {
 
         {/* Stats */}
         <div className="mt-4 grid grid-cols-3 divide-x rounded-lg bg-gray-50">
-          <Stat label="Publicaciones" value={MY_POSTS.length} />
+          <Stat label="Publicaciones" value={posts.length} />
           <Stat label="Seguidores" value={MY_FOLLOWERS.length} />
           <Stat label="Seguidos" value={MY_FOLLOWING_USERS.length + MY_FOLLOWING_COMMUNITIES.length} />
         </div>
@@ -205,27 +241,43 @@ export default function ProfilePage() {
 
       {/* Contenido de pestañas */}
       <section>
+      
         {tab === "posts" && (
           <div className="space-y-4">
-            {MY_POSTS.map((p) => (
-              <article key={p.id} className="bg-white rounded-2xl shadow-md p-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium">{profile.nombre}</h3>
-                  <span className="text-xs text-gray-500">
-                    {p.topic} · {new Date(p.date).toLocaleDateString()}
-                  </span>
-                </div>
-                <p className="mt-2 text-gray-700">{p.text}</p>
-                {p.image && (
-                  <img src={p.image} alt={p.topic} className="mt-3 rounded-xl w-full h-56 object-cover" />
-                )}
-              </article>
-            ))}
-            {MY_POSTS.length === 0 && (
+            {postsLoading && (
+              <p className="text-center text-gray-500">Cargando publicaciones…</p>
+            )}
+
+            {!postsLoading && posts.length === 0 && (
               <p className="text-center text-gray-500">Aún no hay publicaciones.</p>
             )}
+
+            {!postsLoading &&
+              posts.length > 0 &&
+              posts.map((p) => (
+                <article key={p.id} className="bg-white rounded-2xl shadow-md p-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium">
+                      {profile.nombre || profile.username || "Tú"}
+                    </h3>
+                    <span className="text-xs text-gray-500">
+                      {p.topic ?? "General"} ·{" "}
+                      {new Date(p.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-gray-700">{p.text}</p>
+                  {p.image && (
+                    <img
+                      src={p.image}
+                      alt={p.topic ?? "Post"}
+                      className="mt-3 rounded-xl w-full h-56 object-cover"
+                    />
+                  )}
+                </article>
+              ))}
           </div>
         )}
+
 
         {tab === "followers" && (
           <ListUsers title="Seguidores" users={MY_FOLLOWERS} emptyText="Aún no tienes seguidores." />
