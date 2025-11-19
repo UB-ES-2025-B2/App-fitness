@@ -1,6 +1,7 @@
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import os
 
 class LoginPage:
 
@@ -14,7 +15,7 @@ class LoginPage:
         self.wait = WebDriverWait(driver, 10)
 
     def abrir(self):
-        self.driver.get("https://app-fitness-1.onrender.com/login")
+        self.driver.get(os.getenv("DEPLOY_URL","https://app-fitness-1.onrender.com")+"/login")
 
     def login(self, user, passwd):
         self.driver.find_element(*self.EMAIL).send_keys(user)

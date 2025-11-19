@@ -25,12 +25,50 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
 
-      - name: Run tests (tests/ está fuera)
+      - name: Set deploy URL for PR
+        if: ${{ github.event_name == 'pull_request' && github.base_ref == 'DEVELOP' }}
         run: |
-          pytest -v --html=report.html
+          echo "DEPLOY_URL=https://app-fitness-1-pr-${{ github.event.pull_request.number }}.onrender.com" >> $GITHUB_ENV
 
-      - name: Upload report
+      - name: Set deploy URL for main/DEVELOP
+        if: ${{ !(github.event_name == 'pull_request' && github.base_ref == 'DEVELOP') }}
+        run: |
+          echo "DEPLOY_URL=https://app-fitness-1.onrender.com" >> $GITHUB_ENV
+      - name: Set backend URL
+        run: |
+          echo "BACKEND_URL=https://backend-fitness.onrender.com" >> $GITHUB_ENV
+
+      - name: Show deploy URL
+        run: echo "Testing deploy at: $DEPLOY_URL"
+
+      - name: Wait for frontend & backend deploys
+        run: |
+          echo "Waiting for frontend: $DEPLOY_URL"
+          echo "Waiting for backend:  $BACKEND_URL"
+
+          python wait_for_deploy.py "$DEPLOY_URL" &
+          FRONTEND_PID=$!
+
+          python wait_for_deploy.py "$BACKEND_URL" &
+          BACKEND_PID=$!
+
+          wait $FRONTEND_PID
+          wait $BACKEND_PID
+
+          echo "Both frontend and backend are up!"
+
+      - name: Run unit tests
+        run: |
+          pytest -v --html=unit-report.html --self-contained-html
+
+      - name: Run integration tests (Selenium)
+        run: |
+          pytest test_integracion -v --html=integration-report.html --self-contained-html
+
+      - name: Upload reports
         uses: actions/upload-artifact@v4
         with:
-          name: pytest-report
-          path: report.html
+          name: pytest-reports
+          path: |
+            unit-report.html
+            integration-report.html
