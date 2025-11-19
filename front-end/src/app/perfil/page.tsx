@@ -61,8 +61,9 @@ type ApiPost = {
   text: string;
   image?: string | null;
   topic?: string;
-  created_at: string;
+  date: string;
 };
+
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
 
@@ -252,9 +253,9 @@ export default function ProfilePage() {
               <p className="text-center text-gray-500">Aún no hay publicaciones.</p>
             )}
 
-            {!postsLoading &&
-              posts.length > 0 &&
-              posts.map((p) => (
+            {!postsLoading && posts.length > 0 && (
+            <>
+              {posts.map((p) => (
                 <article key={p.id} className="bg-white rounded-2xl shadow-md p-4">
                   <div className="flex items-center justify-between">
                     <h3 className="font-medium">
@@ -262,7 +263,11 @@ export default function ProfilePage() {
                     </h3>
                     <span className="text-xs text-gray-500">
                       {p.topic ?? "General"} ·{" "}
-                      {new Date(p.created_at).toLocaleDateString()}
+                      {new Date(p.date).toLocaleDateString("es-ES", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })}
                     </span>
                   </div>
                   <p className="mt-2 text-gray-700">{p.text}</p>
@@ -275,6 +280,13 @@ export default function ProfilePage() {
                   )}
                 </article>
               ))}
+
+              <p className="text-center text-gray-400 text-sm mt-4">
+                No hay más publicaciones.
+              </p>
+            </>
+          )}
+
           </div>
         )}
 
@@ -326,7 +338,7 @@ function SettingsDropdown({
         username: form.username,                    // <-- username
         preferences: form.temas,                    // <-- preferences (array de strings)
         ocultar_info: form.ocultarInfo,             // <-- boolean
-        // avatar_url ya lo guardamos al vuelo arriba; si quisieras guardarlo aquí:
+        // avatar_url ya lo guardamos al vuelo arriba
         // avatar_url: form.avatarUrl || null,
       });
       // Refleja en UI lo guardado
