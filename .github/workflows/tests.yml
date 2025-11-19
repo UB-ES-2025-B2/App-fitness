@@ -39,7 +39,7 @@ jobs:
           echo "BACKEND_URL=https://backend-fitness.onrender.com" >> $GITHUB_ENV
 
       - name: Show deploy URL
-        run: echo "Testing deploy at: $DEPLOY_URL"
+        run: echo "Testing deploy at $DEPLOY_URL"
 
       - name: Wait for frontend & backend deploys
         run: |
