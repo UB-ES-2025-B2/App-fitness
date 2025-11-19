@@ -50,6 +50,7 @@ jobs:
             echo "frontend_changed=true" >> $GITHUB_ENV
           else
             echo "frontend_changed=false" >> $GITHUB_ENV
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v5
