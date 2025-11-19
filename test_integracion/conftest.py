@@ -7,6 +7,7 @@ from webdriver_manager.chrome import ChromeDriverManager
 def driver():
     options = webdriver.ChromeOptions()
     options.add_argument("--start-maximized")
+    options.add_argument("--headless=new")
 
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),
                               options=options)
