@@ -65,19 +65,21 @@ jobs:
 
       - name: Set backend URL
         run: |
-          echo "BACKEND_URL=https://backend-fitness.onrender.com" >> $GITHUB_ENV
+          echo "BACKEND_URL=https://app-fitness.onrender.com" >> $GITHUB_ENV
 
       - name: Show deploy URLs
         run: |
           echo "Frontend URL: $DEPLOY_URL"
           echo "Backend URL:  $BACKEND_URL"
 
-      - name: Wait for frontend deploy
+      - name: Wait for frontend & backend deploys
         run: |
-          python wait_for_deploy.py "$DEPLOY_URL"
-      - name: Wait for backend deploy
-        run: |
-          python wait_for_deploy.py "$BACKEND_URL"
+          python wait_for_deploy.py "$DEPLOY_URL" &
+          FRONTEND_PID=$!
+          python wait_for_deploy.py "$BACKEND_URL" &
+          BACKEND_PID=$!
+          wait $FRONTEND_PID
+          wait $BACKEND_PID
 
       - name: Run integration tests
         run: |
