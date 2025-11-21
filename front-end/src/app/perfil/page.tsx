@@ -203,6 +203,34 @@ export default function ProfilePage() {
     });
 })();
 
+  useEffect(() => {
+    // Escuchar nuevos posts creados en cualquier parte (composer)
+    const onNewPost = (e: Event) => {
+      const detail = (e as CustomEvent<{
+        id: number;
+        text: string;
+        topic: string;
+        image?: string;
+      }>).detail;
+
+      // Lo adaptamos a tu ApiPost
+      const apiPost: ApiPost = {
+        id: detail.id,
+        text: detail.text,
+        topic: detail.topic,
+        image: detail.image,
+        // No nos llega la fecha del evento normalizado, usamos "ahora"
+        date: new Date().toISOString(),
+      };
+
+      setPosts((prev) => [apiPost, ...prev]);
+    };
+
+    window.addEventListener("new-post", onNewPost as EventListener);
+    return () => window.removeEventListener("new-post", onNewPost as EventListener);
+  }, []);
+
+
 
 
   useEffect(() => {
