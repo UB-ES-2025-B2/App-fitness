@@ -24,12 +24,13 @@ type BackendPost = {
   image?: string | null;
   date?: string | null;
   user?: { id: number; username: string; name?: string | null } | null;
+  likes?: number;
+  liked?: boolean;
 };
 
 const TOPICS: Topic[] = ["Todos", "Fútbol", "Básquet", "Montaña"];
 
 function normalizePost(p: BackendPost): Post {
-  // Pot venir com string o com objecte
   const userName =
     typeof p.user === "string"
       ? p.user
@@ -44,8 +45,8 @@ function normalizePost(p: BackendPost): Post {
     image: p.image ?? undefined,
     user: userName,
     userId,
-    likeCount: 0,
-    likedByMe: false,
+    likeCount: p.likes ?? 0,
+    likedByMe: p.liked ?? false,
   };
 }
 
@@ -59,7 +60,25 @@ export default function Feed() {
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/posts/`);
+        const raw = localStorage.getItem("ubfitness_tokens");
+        let accessToken: string | null = null;
+
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            accessToken = parsed.access_token;
+          } catch (e) {
+            console.error("Invalid ubfitness_tokens in localStorage", e);
+          }
+        }
+
+        const res = await fetch(`${API_BASE}/api/posts/`, {
+          headers: {
+            "Content-Type": "application/json",
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+        });
+
         if (!res.ok) throw new Error("Error cargando posts");
         const data: BackendPost[] = await res.json();
         setPosts(data.map(normalizePost));
@@ -71,7 +90,6 @@ export default function Feed() {
     };
 
     fetchPosts();
-
 
     const onNewPost = (e: Event) => {
       const detail = (e as CustomEvent<Post>).detail;
@@ -86,21 +104,21 @@ export default function Feed() {
       const post = prev.find((p) => p.id === postId);
       const liked = post?.likedByMe ?? false;
       const method = liked ? "DELETE" : "POST";
-  
+
       (async () => {
         const raw = localStorage.getItem("ubfitness_tokens");
         let accessToken: string | null = null;
-  
+
         if (raw) {
           try {
-            const parsed = JSON.parse(raw); 
+            const parsed = JSON.parse(raw);
             accessToken = parsed.access_token;
             console.log("accessToken used in like:", accessToken);
           } catch (e) {
             console.error("Invalid ubfitness_tokens in localStorage", e);
           }
         }
-  
+
         try {
           const res = await fetch(`${API_BASE}/api/posts/${postId}/like`, {
             method,
@@ -109,23 +127,23 @@ export default function Feed() {
               ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
             },
           });
-  
+
           if (!res.ok) {
             const text = await res.text();
             console.error("Error toggling like", res.status, text);
             return;
           }
-  
+
           const data = await res.json(); // { liked, likes }
-  
+
           setPosts((prev2) =>
             prev2.map((p) =>
               p.id === postId
                 ? {
-                    ...p,
-                    likedByMe: data.liked,
-                    likeCount: data.likes,
-                  }
+                  ...p,
+                  likedByMe: data.liked,
+                  likeCount: data.likes,
+                }
                 : p
             )
           );
@@ -133,7 +151,7 @@ export default function Feed() {
           console.error("Error toggling like", err);
         }
       })();
-  
+
       return prev;
     });
   };
