@@ -18,7 +18,7 @@ from app.models import User, Post, EmailVerification
 from datetime import datetime
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope='function')
 def app():
     app = create_app()
     app.config['TESTING'] = True

@@ -6,7 +6,13 @@ Acceptance criteria tested:
 """
 
 import pytest
-from conftest import create_user, create_post
+from conftest import create_user, create_post, verify_user_email
+
+def get_auth_header(client, email, password):
+    resp = client.post('/auth/login', json={'email': email, 'password': password})
+    data = resp.get_json()
+    token = data['access_token']
+    return {'Authorization': f'Bearer {token}'}
 
 
 def test_get_user_profile_by_id(client, _db):
@@ -145,10 +151,13 @@ def test_follow_user(client, _db):
     Verifica que un usuario puede seguir a otro
     """
     user1 = create_user(_db, username='me', name='Me', email='me@example.com')
+    verify_user_email('me@example.com')
     user2 = create_user(_db, username='target', name='Target', email='target@example.com')
     
+    headers = get_auth_header(client, 'me@example.com', 'secret1')
+
     # user1 sigue a user2
-    rv = client.post(f'/api/users/{user2.id}/follow?me={user1.id}')
+    rv = client.post(f'/api/users/{user2.id}/follow', headers=headers)
     assert rv.status_code == 200
     
     data = rv.get_json()
@@ -166,13 +175,16 @@ def test_follow_user_twice(client, _db):
     Verifica que seguir a un usuario dos veces no duplica el seguimiento
     """
     user1 = create_user(_db, username='u1', name='U1', email='u1@example.com')
+    verify_user_email('u1@example.com')
     user2 = create_user(_db, username='u2', name='U2', email='u2@example.com')
     
+    headers = get_auth_header(client, 'u1@example.com', 'secret1')
+
     # Seguir la primera vez
-    client.post(f'/api/users/{user2.id}/follow?me={user1.id}')
+    client.post(f'/api/users/{user2.id}/follow', headers=headers)
     
     # Seguir la segunda vez
-    rv = client.post(f'/api/users/{user2.id}/follow?me={user1.id}')
+    rv = client.post(f'/api/users/{user2.id}/follow', headers=headers)
     assert rv.status_code == 200
     
     # Verificar que solo hay 1 seguidor
@@ -186,8 +198,11 @@ def test_follow_self_fails(client, _db):
     Verifica que un usuario no puede seguirse a sí mismo
     """
     user = create_user(_db, username='myself', name='Myself', email='myself@example.com')
+    verify_user_email('myself@example.com')
     
-    rv = client.post(f'/api/users/{user.id}/follow?me={user.id}')
+    headers = get_auth_header(client, 'myself@example.com', 'secret1')
+
+    rv = client.post(f'/api/users/{user.id}/follow', headers=headers)
     assert rv.status_code == 400
 
 
@@ -196,8 +211,11 @@ def test_unfollow_user(client, _db):
     Verifica que un usuario puede dejar de seguir a otro
     """
     user1 = create_user(_db, username='follower1', name='Follower', email='follower1@example.com')
+    verify_user_email('follower1@example.com')
     user2 = create_user(_db, username='followed', name='Followed', email='followed@example.com')
     
+    headers = get_auth_header(client, 'follower1@example.com', 'secret1')
+
     # user1 sigue a user2
     user1.following.append(user2)
     _db.session.commit()
@@ -207,7 +225,7 @@ def test_unfollow_user(client, _db):
     assert len(rv_before.get_json()) == 1
     
     # user1 deja de seguir a user2
-    rv = client.delete(f'/api/users/{user2.id}/follow?me={user1.id}')
+    rv = client.delete(f'/api/users/{user2.id}/follow', headers=headers)
     assert rv.status_code == 200
     
     # Verificar que user2 ahora tiene 0 seguidores

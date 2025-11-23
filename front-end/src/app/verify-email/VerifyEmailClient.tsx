@@ -13,7 +13,7 @@ export default function VerifyEmailClient() {
 
     const run = async () => {
       try {
-        const base = process.env.NEXT_PUBLIC_API_BASE ?? "/api";
+        const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
         const res = await fetch(`${base}/auth/verify-email?token=${encodeURIComponent(token)}`);
         const data = await res.json();
         if (!res.ok) throw new Error(data?.error || "No se pudo verificar");

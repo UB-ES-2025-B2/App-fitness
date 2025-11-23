@@ -13,7 +13,7 @@ export default function VerifyEmailStartClient({ email }: { email: string }) {
     setError("");
     setLoading(true);
     try {
-      const base = (process.env.NEXT_PUBLIC_API_BASE || "").replace(/\/+$/, "");
+      const base = (process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000").replace(/\/+$/, "");
       const res = await fetch(`${base}/auth/resend-verification`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

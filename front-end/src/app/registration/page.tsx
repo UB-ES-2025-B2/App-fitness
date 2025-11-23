@@ -63,7 +63,7 @@ export default function RegisterPage() {
     setError("");
     setResendLoading(true);
     try {
-      const base = process.env.NEXT_PUBLIC_API_BASE!;
+      const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
       const res = await fetch(`${base}/auth/resend-verification`, {
         method: "POST",
         headers: {
@@ -99,7 +99,7 @@ export default function RegisterPage() {
 
     setLoading(true);
     try {
-      const base = process.env.NEXT_PUBLIC_API_BASE!;
+      const base = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:5000";
       const res = await fetch(`${base}/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

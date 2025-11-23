@@ -76,7 +76,7 @@ export default function SearchBox() {
         abortRef.current?.abort();
         const ac = new AbortController();
         abortRef.current = ac;
-        const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
+        const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
         const res = await fetch(
           `${API_BASE}/api/search?q=${encodeURIComponent(q)}&limit=5`,
           { signal: ac.signal }
