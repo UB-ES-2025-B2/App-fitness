@@ -17,7 +17,7 @@ export default function LoginPage() {
     setError("");
 
     try {
-      const base = process.env.NEXT_PUBLIC_API_BASE!;
+      const base = process.env.NEXT_PUBLIC_API_BASE || "http://127.0.0.1:5000";
       const res = await fetch(`${base}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

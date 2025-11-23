@@ -1,5 +1,6 @@
-from flask import Blueprint, jsonify, request, abort
-
+from flask import Blueprint, jsonify, request, abort, current_app
+import jwt
+from app.utils.auth_utils import token_required
 
 from ..models import User, Post
 from app.models import db
@@ -43,7 +44,23 @@ def add_preferences(user_id):
 @bp.get("/<int:user_id>")
 def get_profile(user_id):
     user = User.query.get_or_404(user_id)
-    return jsonify(user.to_profile_dict())
+    profile_data = user.to_profile_dict()
+
+    # Check if current user is following
+    auth_header = request.headers.get("Authorization")
+    if auth_header and "Bearer " in auth_header:
+        try:
+            token = auth_header.split(" ")[1]
+            data = jwt.decode(token, current_app.config.get("JWT_SECRET_KEY") or current_app.config['SECRET_KEY'], algorithms=["HS256"])
+            current_user_id = data["user_id"]
+            current_user = User.query.get(current_user_id)
+            if current_user:
+                is_following = current_user.following.filter_by(id=user_id).first() is not None
+                profile_data["is_following"] = is_following
+        except:
+            pass
+
+    return jsonify(profile_data)
 
 @bp.route("/<int:user_id>/posts")
 def get_user_posts(user_id):
@@ -82,23 +99,23 @@ def following(user_id):
     return jsonify(items)
 
 @bp.post("/<int:user_id>/follow")
-def follow_user(user_id):
-    me_id = int(request.args.get("me"))
-    me = User.query.get_or_404(me_id)
+@token_required
+def follow_user(current_user, user_id):
     target = User.query.get_or_404(user_id)
-    if me.id == target.id:
-        abort(400, "No puedes seguirte a ti mismo.")
-    if not me.following.filter_by(id=target.id).first():
-        me.following.append(target)
+    if current_user.id == target.id:
+        return jsonify({"error": "No puedes seguirte a ti mismo."}), 400
+    
+    if not current_user.following.filter_by(id=target.id).first():
+        current_user.following.append(target)
         db.session.commit()
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "is_following": True})
 
 @bp.delete("/<int:user_id>/follow")
-def unfollow_user(user_id):
-    me_id = int(request.args.get("me"))
-    me = User.query.get_or_404(me_id)
+@token_required
+def unfollow_user(current_user, user_id):
     target = User.query.get_or_404(user_id)
-    if me.following.filter_by(id=target.id).first():
-        me.following.remove(target)
+    
+    if current_user.following.filter_by(id=target.id).first():
+        current_user.following.remove(target)
         db.session.commit()
-    return jsonify({"ok": True})
+    return jsonify({"ok": True, "is_following": False})
