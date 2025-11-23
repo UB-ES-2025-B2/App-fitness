@@ -82,3 +82,38 @@ def test_follow_multiple(client, _db):
     usernames = [u['username'] for u in following]
     assert 'user2' in usernames
     assert 'user3' in usernames
+
+def test_followers_following_structure(client, _db):
+    """
+    US16 Task 2: Verify structure of followers/following lists
+    """
+    u1 = create_user(_db, username='struct1', name='Struct User 1', email='s1@test.com', avatar_url='http://avatar.com/1.jpg')
+    verify_user_email('s1@test.com')
+    u2 = create_user(_db, username='struct2', name='Struct User 2', email='s2@test.com', avatar_url='http://avatar.com/2.jpg')
+
+    headers = get_auth_header(client, 's1@test.com', 'secret1')
+    client.post(f'/api/users/{u2.id}/follow', headers=headers)
+
+    # Check followers of u2 (should contain u1)
+    rv = client.get(f'/api/users/{u2.id}/followers')
+    data = rv.get_json()
+    assert len(data) == 1
+    follower = data[0]
+    assert 'id' in follower
+    assert 'username' in follower
+    assert 'name' in follower
+    assert 'avatarUrl' in follower
+    assert follower['username'] == 'struct1'
+    assert follower['avatarUrl'] == 'http://avatar.com/1.jpg'
+
+    # Check following of u1 (should contain u2)
+    rv = client.get(f'/api/users/{u1.id}/following')
+    data = rv.get_json()
+    assert len(data) == 1
+    followed = data[0]
+    assert 'id' in followed
+    assert 'username' in followed
+    assert 'name' in followed
+    assert 'avatarUrl' in followed
+    assert followed['username'] == 'struct2'
+    assert followed['avatarUrl'] == 'http://avatar.com/2.jpg'
