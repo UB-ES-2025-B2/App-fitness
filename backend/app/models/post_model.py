@@ -25,6 +25,7 @@ class Post(db.Model):
             "topic": self.topic or "",
             "image": self.image_url,
             "date": self.created_at.isoformat() if self.created_at else None,
+            
             "user": {
                 "id": self.author.id,
                 "username": self.author.username,
