@@ -7,6 +7,9 @@ export default function VerifyEmailClient() {
   const sp = useSearchParams();
   const token = sp.get("token");
   const [msg, setMsg] = useState("Verificando...");
+  const [error, setError] = useState<string | null>(null);
+  const [emailFromPayload, setEmailFromPayload] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!token) { setMsg("Token ausente."); return; }
