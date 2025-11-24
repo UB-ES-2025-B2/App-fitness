@@ -9,7 +9,6 @@ bp = Blueprint("posts", __name__, url_prefix="/api/posts")
 
 
 @bp.get("/")
-@token_required
 def list_posts(current_user):
     posts = Post.query.order_by(Post.created_at.desc()).all()
     payload = []
