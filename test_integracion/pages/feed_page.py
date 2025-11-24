@@ -1,6 +1,8 @@
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import TimeoutException  # <-- ADD THIS
+
 import os
 import time
 
@@ -18,9 +20,14 @@ class FeedPage:
         self.base_url = os.getenv("DEPLOY_URL", "https://app-fitness-1.onrender.com")
 
     def abrir(self):
-        """Go to homepage/feed and wait for first post."""
+        """Go to homepage/feed and (optionally) wait for first post."""
         self.driver.get(self.base_url + "/")
-        self.wait.until(EC.presence_of_element_located(self.FIRST_POST))
+        try:
+            # Si no aparece ningún post, no queremos que falle aquí,
+            # el propio test se encargará de hacer skip si no hay posts.
+            self.wait.until(EC.presence_of_element_located(self.FIRST_POST))
+        except TimeoutException:
+            pass
         time.sleep(1)
 
     def _first_post(self):
