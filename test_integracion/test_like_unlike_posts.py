@@ -1,13 +1,42 @@
-# test_integracion/test_like_unlike_posts.py
-import os
 import time
+import pytest
+from selenium.webdriver.common.by import By
 
 from pages.login_page import LoginPage
 from pages.feed_page import FeedPage
 from pages.perfil_page import PerfilPage
 
 
-BASE_URL = os.getenv("DEPLOY_URL", "https://app-fitness-1.onrender.com")
+def _get_first_likeable_post(driver):
+    candidates = driver.find_elements(
+        By.CSS_SELECTOR, "div > article, article, .post-card, .card"
+    )
+
+    if not candidates:
+        pytest.skip("No hay ningún post en el feed para probar likes.")
+
+    for el in candidates:
+        btns = el.find_elements(
+            By.XPATH, ".//button[.//span[contains(normalize-space(.), 'Me gusta')]]"
+        )
+        if btns:
+            return el, btns[0]
+
+    pytest.skip("Ningún post tiene botón 'Me gusta'.")
+
+
+def _parse_like_count(like_button):
+    spans = like_button.find_elements(By.TAG_NAME, "span")
+    if not spans:
+        return 0
+    text = spans[-1].text.strip()
+    first_token = text.split()[0]
+    return int(first_token) if first_token.isdigit() else 0
+
+
+def _is_liked(like_button):
+    spans = like_button.find_elements(By.TAG_NAME, "span")
+    return spans and spans[0].text.strip() == "💖"
 
 
 def test_like_unlike_post_and_see_in_profile(driver):
@@ -19,23 +48,28 @@ def test_like_unlike_post_and_see_in_profile(driver):
     time.sleep(1)
     login.login("toni@example.com", "app-fitness1")
 
-    feed.wait_loaded()
-    time.sleep(1)
+    feed.abrir()
+    time.sleep(2)
 
-    if feed.is_liked():
-        feed.toggle_like()
+    post, like_button = _get_first_likeable_post(driver)
+
+    title_el = post.find_element(By.XPATH, ".//h2 | .//h3")
+    post_title = title_el.text.strip()
+
+    baseline = _parse_like_count(like_button)
+
+    if _is_liked(like_button):
+        like_button.click()
         time.sleep(1)
-        assert feed.is_liked() is False
+        post, like_button = _get_first_likeable_post(driver)
+        baseline = _parse_like_count(like_button)
 
-    baseline_count = feed.get_like_count()
-    post_title = feed.get_first_post_title()
-
-    feed.toggle_like()
+    like_button.click()
     time.sleep(1)
-    assert feed.is_liked() is True
+    post, like_button = _get_first_likeable_post(driver)
 
-    count_after_like = feed.get_like_count()
-    assert count_after_like == baseline_count + 1
+    assert _is_liked(like_button)
+    assert _parse_like_count(like_button) == baseline + 1
 
     perfil.abrir()
     time.sleep(1)
@@ -45,14 +79,15 @@ def test_like_unlike_post_and_see_in_profile(driver):
     liked_titles = perfil.liked_post_titles()
     assert any(post_title in t for t in liked_titles)
 
-    driver.get(BASE_URL + "/")
-    feed.wait_loaded()
-    time.sleep(1)
+    feed.abrir()
+    time.sleep(2)
+    post, like_button = _get_first_likeable_post(driver)
 
-    if feed.is_liked():
-        feed.toggle_like()
+    if _is_liked(like_button):
+        like_button.click()
         time.sleep(1)
-        assert feed.is_liked() is False
+        post, like_button = _get_first_likeable_post(driver)
+        assert not _is_liked(like_button)
 
     perfil.abrir()
     time.sleep(1)

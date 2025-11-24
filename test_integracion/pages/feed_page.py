@@ -1,5 +1,3 @@
-# test_integracion/pages/feed_page.py
-
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -32,6 +30,17 @@ class FeedPage:
         post = self._first_post()
         title = post.find_element(*self.POST_TITLE).text.strip()
         return title
+    def wait_loaded(self, timeout: int = 10):
+        """
+        Asegura que estamos en la página de feed ("/") y
+        espera a que aparezca al menos un post.
+        """
+        if not self.driver.current_url.startswith(self.base_url + "/"):
+            self.driver.get(self.base_url + "/")
+
+        WebDriverWait(self.driver, timeout).until(
+            EC.presence_of_element_located(self.FIRST_POST)
+        )
 
     def get_like_count(self):
         post = self._first_post()
