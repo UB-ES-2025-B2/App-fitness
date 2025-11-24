@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Topic, useTopic } from "./TopicContext";
+import { access } from "fs";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 
 type Post = {
@@ -12,6 +13,8 @@ type Post = {
   topic: string;
   text: string;
   image?: string;
+  likeCount?: number;
+  likedByMe?: boolean;
 };
 
 type BackendPost = {
@@ -21,12 +24,13 @@ type BackendPost = {
   image?: string | null;
   date?: string | null;
   user?: { id: number; username: string; name?: string | null } | null;
+  likes?: number;
+  liked?: boolean;
 };
 
 const TOPICS: Topic[] = ["Todos", "Fútbol", "Básquet", "Montaña"];
 
 function normalizePost(p: BackendPost): Post {
-  // Pot venir com string o com objecte
   const userName =
     typeof p.user === "string"
       ? p.user
@@ -41,6 +45,8 @@ function normalizePost(p: BackendPost): Post {
     image: p.image ?? undefined,
     user: userName,
     userId,
+    likeCount: p.likes ?? 0,
+    likedByMe: p.liked ?? false,
   };
 }
 
@@ -54,7 +60,25 @@ export default function Feed() {
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/posts/`);
+        const raw = localStorage.getItem("ubfitness_tokens");
+        let accessToken: string | null = null;
+
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            accessToken = parsed.access_token;
+          } catch (e) {
+            console.error("Invalid ubfitness_tokens in localStorage", e);
+          }
+        }
+
+        const res = await fetch(`${API_BASE}/api/posts/`, {
+          headers: {
+            "Content-Type": "application/json",
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+        });
+
         if (!res.ok) throw new Error("Error cargando posts");
         const data: BackendPost[] = await res.json();
         setPosts(data.map(normalizePost));
@@ -74,6 +98,63 @@ export default function Feed() {
     window.addEventListener("new-post", onNewPost as EventListener);
     return () => window.removeEventListener("new-post", onNewPost as EventListener);
   }, []);
+
+  const handleToggleLike = async (postId: number) => {
+    setPosts((prev) => {
+      const post = prev.find((p) => p.id === postId);
+      const liked = post?.likedByMe ?? false;
+      const method = liked ? "DELETE" : "POST";
+
+      (async () => {
+        const raw = localStorage.getItem("ubfitness_tokens");
+        let accessToken: string | null = null;
+
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            accessToken = parsed.access_token;
+            console.log("accessToken used in like:", accessToken);
+          } catch (e) {
+            console.error("Invalid ubfitness_tokens in localStorage", e);
+          }
+        }
+
+        try {
+          const res = await fetch(`${API_BASE}/api/posts/${postId}/like`, {
+            method,
+            headers: {
+              "Content-Type": "application/json",
+              ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+            },
+          });
+
+          if (!res.ok) {
+            const text = await res.text();
+            console.error("Error toggling like", res.status, text);
+            return;
+          }
+
+          const data = await res.json(); // { liked, likes }
+
+          setPosts((prev2) =>
+            prev2.map((p) =>
+              p.id === postId
+                ? {
+                  ...p,
+                  likedByMe: data.liked,
+                  likeCount: data.likes,
+                }
+                : p
+            )
+          );
+        } catch (err) {
+          console.error("Error toggling like", err);
+        }
+      })();
+
+      return prev;
+    });
+  };
 
   if (loading) return <p className="text-center mt-10">Carregant publicacions...</p>;
   if (error) return <p className="text-center text-red-500 mt-10">{error}</p>;
@@ -97,7 +178,7 @@ export default function Feed() {
           >
             <div className="flex items-center justify-between mb-2">
               {post.userId ? (
-                <Link 
+                <Link
                   href={`/usuario/${post.userId}`}
                   className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
                 >
@@ -122,6 +203,15 @@ export default function Feed() {
                 />
               </div>
             )}
+            <div className="mt-3 flex items-center gap-3">
+              <button
+                onClick={() => handleToggleLike(post.id)}
+                className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+              >
+                <span>{post.likedByMe ? "💖" : "🤍"}</span>
+                <span>{post.likeCount ?? 0} Me gusta</span>
+              </button>
+            </div>
           </article>
         ))}
       </div>
@@ -193,11 +283,10 @@ function TopicDropdown({
                   role="option"
                   aria-selected={active}
                   onClick={() => onSelect(t)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                    active
-                      ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium"
-                      : "hover:bg-blue-50 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200"
-                  }`}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${active
+                    ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium"
+                    : "hover:bg-blue-50 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200"
+                    }`}
                 >
                   {t}
                 </button>
