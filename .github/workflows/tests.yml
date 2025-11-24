@@ -8,7 +8,7 @@ on:
       - DEVELOP
 
 jobs:
-  test:
+  unit_tests:
     runs-on: ubuntu-latest
 
     steps:
@@ -25,12 +25,77 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
 
-      - name: Run tests (tests/ está fuera)
+      - name: Run unit tests
         run: |
-          pytest -v --html=report.html
+          pytest test -v --html=unit-report.html --self-contained-html
 
-      - name: Upload report
+      - name: Upload unit test report
         uses: actions/upload-artifact@v4
         with:
-          name: pytest-report
-          path: report.html
+          name: unit-report
+          path: unit-report.html
+
+  integration_tests:
+    runs-on: ubuntu-latest
+    needs: unit_tests
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check if frontend changed
+        id: check_frontend
+        run: |
+          if git diff --name-only ${{ github.event.before }} ${{ github.sha }} | grep '^frontend/'; then
+            echo "frontend_changed=true" >> $GITHUB_ENV
+          else
+            echo "frontend_changed=false" >> $GITHUB_ENV
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install backend dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+
+      - name: Set deploy URL for PR to DEVELOP
+        if: ${{ github.event_name == 'pull_request' && github.base_ref == 'DEVELOP'  && env.frontend_changed}}
+        run: |
+          echo "DEPLOY_URL=https://app-fitness-1-pr-${{ github.event.pull_request.number }}.onrender.com" >> $GITHUB_ENV
+
+      - name: Set deploy URL for non-PR-to-DEVELOP
+        if: ${{ !(github.event_name == 'pull_request' && github.base_ref == 'DEVELOP' && env.frontend_changed) }}
+        run: |
+          echo "DEPLOY_URL=https://app-fitness-1.onrender.com" >> $GITHUB_ENV
+
+      - name: Set backend URL
+        run: |
+          echo "BACKEND_URL=https://app-fitness.onrender.com" >> $GITHUB_ENV
+
+      - name: Show deploy URLs
+        run: |
+          echo "Frontend URL: $DEPLOY_URL"
+          echo "Backend URL:  $BACKEND_URL"
+
+      - name: Wait for frontend & backend deploys
+        run: |
+          python wait_for_deploy.py "$DEPLOY_URL" &
+          FRONTEND_PID=$!
+          python wait_for_deploy.py "$BACKEND_URL" &
+          BACKEND_PID=$!
+          wait $FRONTEND_PID
+          wait $BACKEND_PID
+
+      - name: Run integration tests
+        run: |
+          pytest test_integracion -v --html=integration-report.html --self-contained-html
+
+      - name: Upload integration test report
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-report
+          path: integration-report.html

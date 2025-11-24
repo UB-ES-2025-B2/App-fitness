@@ -33,7 +33,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --color-bg: #0f172a;         /* gris-blavós fosc */
-    --color-text: #f1f5f9;       /* blanc trencat */
+    --color-text: #000000;       /* blanc trencat */
     --color-primary: #3b82f6;    /* blau una mica més suau */
   }
 }
