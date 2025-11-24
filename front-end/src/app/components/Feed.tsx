@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Topic, useTopic } from "./TopicContext";
 import { access } from "fs";
+import { motion } from "framer-motion";
+
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 
 type Post = {
@@ -156,7 +158,25 @@ export default function Feed() {
     });
   };
 
-  if (loading) return <p className="text-center mt-10">Carregant publicacions...</p>;
+  if (loading)
+  return (
+    <div className="flex flex-col items-center justify-center h-[70vh]">
+      <motion.div
+        className="h-10 w-10 border-4 border-blue-500 border-t-transparent rounded-full"
+        animate={{ rotate: 360 }}
+        transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+      />
+      <motion.p
+        className="mt-4 text-gray-600 dark:text-gray-300 text-lg"
+        initial={{ opacity: 0, y: 5 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+      >
+        Carregant publicacions...
+      </motion.p>
+    </div>
+  );
+
   if (error) return <p className="text-center text-red-500 mt-10">{error}</p>;
   if (posts.length === 0)
     return <p className="text-center mt-10 text-gray-500 dark:text-gray-400">No hi ha contingut per mostrar.</p>;
