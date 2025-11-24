@@ -14,8 +14,8 @@ os.environ['DATABASE_URL'] = 'sqlite:///:memory:'
 os.environ['SECRET_KEY'] = 'test-secret'
 
 from app import create_app, db
-from app.models.user_model import User
-from app.models.post_model import Post
+from app.models import User, Post, EmailVerification
+from datetime import datetime
 
 
 @pytest.fixture(scope='session')
@@ -66,3 +66,30 @@ def create_post(_db, user_id, topic='general', text='hello', image_url=None):
     _db.session.add(p)
     _db.session.commit()
     return p
+
+def verify_user_email(email: str) -> bool:
+    """
+    Verifica el correo de un usuario.
+    Crea EmailVerification si no existe.
+    """
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return False
+
+    ev = EmailVerification.query.filter_by(user_id=user.id).first()
+
+    # Si no existe, lo creamos
+    if not ev:
+        ev = EmailVerification(
+            user_id=user.id,
+            verified_at=datetime.utcnow(),
+            last_sent_at=None,
+            token_hash=None
+        )
+        db.session.add(ev)
+    else:
+        # Simplemente marcar como verificado
+        ev.verified_at = datetime.utcnow()
+
+    db.session.commit()
+    return True
