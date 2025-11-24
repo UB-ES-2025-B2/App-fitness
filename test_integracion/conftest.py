@@ -1,13 +1,20 @@
 import pytest
+import os
+import sys
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
-from backend.app.models import User, Post, EmailVerification
-
 from datetime import datetime
-from backend.app import create_app, db
 
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+BACKEND_PATH = os.path.join(ROOT, "backend")
+if BACKEND_PATH not in sys.path:
+    sys.path.insert(0, BACKEND_PATH)
+
+from app import create_app, db
+from app.models import User, Post, EmailVerification
 
 @pytest.fixture
 def driver():

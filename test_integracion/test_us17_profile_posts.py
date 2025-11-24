@@ -2,9 +2,8 @@ import json
 import pytest
 from datetime import datetime, timedelta
 
-from backend.app.models.user_model import User
+from app.models.user_model import User
 from conftest import create_user, create_post, verify_user_email
-from backend.app.models import Post
 
 def get_auth_headers_for_user(client, _db, *, email="creator@example.com", password="secret1"):
     """
