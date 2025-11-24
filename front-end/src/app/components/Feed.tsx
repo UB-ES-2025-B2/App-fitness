@@ -70,9 +70,9 @@ export default function Feed() {
   const [error, setError] = useState<string | null>(null);
   const { topic, setTopic } = useTopic();
 
-  const [timeFilter, setTimeFilter] = useState("ALL");
+  
   const [sortOrder, setSortOrder] = useState("DESC");
-  const [followFilter, setFollowFilter] = useState("ALL");
+  
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -202,35 +202,9 @@ export default function Feed() {
   // ------------------------------
   const now = new Date();
 
-  const filterByTime = (post: Post) => {
-    if (!post.date || timeFilter === "ALL") return true;
-
-    const date = new Date(post.date);
-    const diffMs = now.getTime() - date.getTime();
-    const hour = 3600 * 1000;
-    const day = 24 * hour;
-    const month = 30 * day;
-    const year = 365 * day;
-
-    switch (timeFilter) {
-      case "1H":
-        return diffMs <= hour;
-      case "1D":
-        return diffMs <= day;
-      case "1M":
-        return diffMs <= month;
-      case "6M":
-        return diffMs <= 6 * month;
-      case "1Y":
-        return diffMs <= year;
-      default:
-        return true;
-    }
-  };
 
   let visible = posts
     .filter((p) => topic === "Todos" || p.topic === topic)
-    .filter(filterByTime)
     .sort((a, b) => {
       const da = new Date(a.date ?? "").getTime();
       const db = new Date(b.date ?? "").getTime();
@@ -253,12 +227,10 @@ export default function Feed() {
       </div>
 
       <FeedFilters
-        timeFilter={timeFilter}
-        setTimeFilter={setTimeFilter}
+        
         sortOrder={sortOrder}
         setSortOrder={setSortOrder}
-        followFilter={followFilter}
-        setFollowFilter={setFollowFilter}
+      
       />
 
       <div className="space-y-6 mt-4">
@@ -393,59 +365,17 @@ function TopicDropdown({
 }
 
 /* ---------------------------------------------------------------
-   FEED FILTERS
+   FEED FILTERS - SOLO ORDEN
 ----------------------------------------------------------------*/
 function FeedFilters({
-  timeFilter,
-  setTimeFilter,
   sortOrder,
   setSortOrder,
-  followFilter,
-  setFollowFilter,
 }: {
-  timeFilter: string;
-  setTimeFilter: (v: string) => void;
   sortOrder: string;
   setSortOrder: (v: string) => void;
-  followFilter: string;
-  setFollowFilter: (v: string) => void;
 }) {
-  const timeOptions = [
-    { value: "ALL", label: "Todo" },
-    { value: "1H", label: "Hace 1 hora" },
-    { value: "1D", label: "Hace 1 día" },
-    { value: "1M", label: "Hace 1 mes" },
-    { value: "6M", label: "Hace 6 meses" },
-    { value: "1Y", label: "Hace 1 año" },
-  ];
-
   return (
     <div className="bg-white dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 rounded-xl p-3 shadow-sm flex flex-wrap gap-2">
-      
-      <button
-        onClick={() => setFollowFilter(followFilter === "ALL" ? "FOLLOWING" : "ALL")}
-        className={`px-3 py-1.5 rounded-full text-xs border ${
-          followFilter === "FOLLOWING"
-            ? "bg-blue-600 text-white border-blue-600"
-            : "bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100"
-        }`}
-      >
-        Solo seguidos
-      </button>
-
-      {timeOptions.map((opt) => (
-        <button
-          key={opt.value}
-          onClick={() => setTimeFilter(opt.value)}
-          className={`px-3 py-1.5 rounded-full text-xs border ${
-            timeFilter === opt.value
-              ? "bg-emerald-500 text-white border-emerald-500 shadow-sm"
-              : "bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100"
-          }`}
-        >
-          {opt.label}
-        </button>
-      ))}
 
       <div className="flex items-center gap-1 ml-auto">
         <button
