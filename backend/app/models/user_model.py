@@ -33,6 +33,12 @@ class User(db.Model):
         lazy="dynamic",
         backref=db.backref("following", lazy="dynamic"),
     )
+    liked_posts = db.relationship(
+        "Post",
+        secondary="post_like",
+        back_populates="liked_by",
+        lazy="dynamic",
+    )
 
     def set_password(self, password):
         self.password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')

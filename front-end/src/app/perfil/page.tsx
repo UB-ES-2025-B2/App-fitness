@@ -44,7 +44,24 @@ async function updateMe(patch: Partial<{
     const text = await res.text();
     throw new Error(text || "No se pudo guardar el perfil");
   }
-  return res.json(); // { message, user: {...} }
+  return res.json();
+}
+async function fetchMyLikedPosts(): Promise<Post[]> {
+  const res = await authFetch("/api/posts/me/likes");
+  if (!res.ok) {
+    console.error("No se pudieron cargar los posts con like");
+    return [];
+  }
+
+  const data = await res.json();
+
+  return data.map((p: any) => ({
+    id: p.id,
+    text: p.text,
+    topic: p.topic ?? "General",
+    date: p.date ?? p.created_at ?? "",
+    image: p.image ?? p.image_url ?? undefined,
+  })) as Post[];
 }
 
 type Post = { id: number; text: string; image?: string; topic: string; date: string };
@@ -102,9 +119,31 @@ export default function ProfilePage() {
   const [tab, setTab] = useState<"posts" | "followers" | "following">("posts");
   const [profile, setProfile] = useState<Profile>(INITIAL_PROFILE);
   const [loading, setLoading] = useState(true);
+  const [likedPosts, setLikedPosts] = useState<Post[]>([]);
+
+  const handleUnlikeFromProfile = async (postId: number) => {
+    try {
+      // Llamamos al backend para quitar el like
+      const res = await authFetch(`/api/posts/${postId}/like`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("Error al quitar me gusta:", res.status, text);
+        alert("No se pudo quitar el 'me gusta'.");
+        return;
+      }
+
+      // Si salió bien, lo quitamos de la lista local
+      setLikedPosts((prev) => prev.filter((p) => p.id !== postId));
+    } catch (err) {
+      console.error("Error al quitar me gusta:", err);
+      alert("Error al quitar el 'me gusta'.");
+    }
+  };
 
   useEffect(() => {
-    // si no hay tokens -> a /login
     if (!getTokens()) {
       router.replace("/login");
       return;
@@ -117,10 +156,9 @@ export default function ProfilePage() {
         return;
       }
 
-      // Mapea lo que venga del back a tu shape local
       setProfile({
         nombre: me.name ?? "",
-        apellido1: "",           // aún no viene del back
+        apellido1: "",         
         apellido2: "",
         username: me.username ?? "",
         fechaNacimiento: "",
@@ -134,7 +172,8 @@ export default function ProfilePage() {
           : [],
         ocultarInfo: typeof me.ocultar_info === "boolean" ? me.ocultar_info : true,
       });
-
+      const liked = await fetchMyLikedPosts();
+      setLikedPosts(liked);
       setLoading(false);
     })();
   }, [router]);
@@ -189,10 +228,11 @@ export default function ProfilePage() {
         </div>
 
         {/* Stats */}
-        <div className="mt-4 grid grid-cols-3 divide-x rounded-lg bg-gray-50">
+        <div className="mt-4 grid grid-cols-4 divide-x rounded-lg bg-gray-50">
           <Stat label="Publicaciones" value={MY_POSTS.length} />
           <Stat label="Seguidores" value={MY_FOLLOWERS.length} />
           <Stat label="Seguidos" value={MY_FOLLOWING_USERS.length + MY_FOLLOWING_COMMUNITIES.length} />
+          <Stat label="Me gusta" value={likedPosts.length} />
         </div>
 
         {/* Tabs */}
@@ -200,6 +240,8 @@ export default function ProfilePage() {
           <TabButton active={tab === "posts"} onClick={() => setTab("posts")}>Publicaciones</TabButton>
           <TabButton active={tab === "followers"} onClick={() => setTab("followers")}>Seguidores</TabButton>
           <TabButton active={tab === "following"} onClick={() => setTab("following")}>Seguidos</TabButton>
+          <TabButton active={tab === "likes"} onClick={() => setTab("likes")}>Me gusta</TabButton>
+
         </div>
       </section>
 
@@ -237,6 +279,45 @@ export default function ProfilePage() {
             <ListCommunities title="Comunidades seguidas" communities={MY_FOLLOWING_COMMUNITIES} emptyText="No sigues comunidades." />
           </div>
         )}
+         {tab === "likes" && (
+    <div className="space-y-4">
+      {likedPosts.map((p) => (
+        <article key={p.id} className="bg-white rounded-2xl shadow-md p-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-medium">{profile.nombre}</h3>
+            {p.date && (
+              <span className="text-xs text-gray-500">
+                {p.topic} · {new Date(p.date).toLocaleDateString()}
+              </span>
+            )}
+          </div>
+          <p className="mt-2 text-gray-700">{p.text}</p>
+          {p.image && (
+            <img
+              src={p.image}
+              alt={p.topic}
+              className="mt-3 rounded-xl w-full h-56 object-cover"
+            />
+          )}
+          <div className="mt-3 flex justify-end">
+          <button
+            onClick={() => handleUnlikeFromProfile(p.id)}
+            className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-full
+                       bg-gray-100 hover:bg-red-50 text-gray-600 hover:text-red-600
+                       border border-gray-200"
+          >
+            <span>💔</span>
+            <span>Quitar “me gusta”</span>
+          </button>
+        </div>
+        </article>
+      ))}
+      {likedPosts.length === 0 && (
+        <p className="text-center text-gray-500">
+          Todavía no has dado "me gusta" a ninguna publicación.
+        </p>
+      )}
+    </div> )}
       </section>
     </div>
   );

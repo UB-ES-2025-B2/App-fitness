@@ -102,7 +102,7 @@ def auth_required(fn):
             return jsonify({"error": "El token ha caducado"}), 401
         except jwt.InvalidTokenError:
             return jsonify({"error": "Token inválido"}), 401
-        return fn(*args, **kwargs)
+        return fn(user, *args, **kwargs)
     return _wrapped
 
 @bp.route('/register', methods=['POST'])
