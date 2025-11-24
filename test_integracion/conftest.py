@@ -13,6 +13,9 @@ BACKEND_PATH = os.path.join(ROOT, "backend")
 if BACKEND_PATH not in sys.path:
     sys.path.insert(0, BACKEND_PATH)
 
+os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["SECRET_KEY"] = "test-secret"
+
 from app import create_app, db
 from app.models import User, Post, EmailVerification
 
