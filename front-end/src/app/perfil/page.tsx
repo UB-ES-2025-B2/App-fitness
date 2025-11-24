@@ -131,31 +131,9 @@ export default function ProfilePage() {
   const [tab, setTab] = useState<"posts" | "followers" | "following">("posts");
   const [profile, setProfile] = useState<Profile>(INITIAL_PROFILE);
   const [loading, setLoading] = useState(true);
-  const [likedPosts, setLikedPosts] = useState<Post[]>([]);
-
-  const handleUnlikeFromProfile = async (postId: number) => {
-    try {
-      // Llamamos al backend para quitar el like
-      const res = await authFetch(`/api/posts/${postId}/like`, {
-        method: "DELETE",
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        console.error("Error al quitar me gusta:", res.status, text);
-        alert("No se pudo quitar el 'me gusta'.");
-        return;
-      }
-
-      // Si salió bien, lo quitamos de la lista local
-      setLikedPosts((prev) => prev.filter((p) => p.id !== postId));
-    } catch (err) {
-      console.error("Error al quitar me gusta:", err);
-      alert("Error al quitar el 'me gusta'.");
-    }
-  };
 
   useEffect(() => {
+    // si no hay tokens -> a /login
     if (!getTokens()) {
       router.replace("/login");
       return;
@@ -168,9 +146,10 @@ export default function ProfilePage() {
         return;
       }
 
+      // Mapea lo que venga del back a tu shape local
       setProfile({
         nombre: me.name ?? "",
-        apellido1: "",         
+        apellido1: "",           // aún no viene del back
         apellido2: "",
         username: me.username ?? "",
         fechaNacimiento: "",
@@ -184,8 +163,7 @@ export default function ProfilePage() {
           : [],
         ocultarInfo: typeof me.ocultar_info === "boolean" ? me.ocultar_info : true,
       });
-      const liked = await fetchMyLikedPosts();
-      setLikedPosts(liked);
+
       setLoading(false);
     })();
   }, [router]);
@@ -240,11 +218,10 @@ export default function ProfilePage() {
         </div>
 
         {/* Stats */}
-        <div className="mt-4 grid grid-cols-4 divide-x rounded-lg bg-gray-50">
+        <div className="mt-4 grid grid-cols-3 divide-x rounded-lg bg-gray-50">
           <Stat label="Publicaciones" value={MY_POSTS.length} />
           <Stat label="Seguidores" value={MY_FOLLOWERS.length} />
           <Stat label="Seguidos" value={MY_FOLLOWING_USERS.length + MY_FOLLOWING_COMMUNITIES.length} />
-          <Stat label="Me gusta" value={likedPosts.length} />
         </div>
 
         {/* Tabs */}
@@ -252,8 +229,6 @@ export default function ProfilePage() {
           <TabButton active={tab === "posts"} onClick={() => setTab("posts")}>Publicaciones</TabButton>
           <TabButton active={tab === "followers"} onClick={() => setTab("followers")}>Seguidores</TabButton>
           <TabButton active={tab === "following"} onClick={() => setTab("following")}>Seguidos</TabButton>
-          <TabButton active={tab === "likes"} onClick={() => setTab("likes")}>Me gusta</TabButton>
-
         </div>
       </section>
 
