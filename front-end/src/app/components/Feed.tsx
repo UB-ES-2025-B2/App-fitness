@@ -32,6 +32,7 @@ type BackendPost = {
 
 const TOPICS: Topic[] = ["Todos", "Fútbol", "Básquet", "Montaña"];
 
+
 function normalizePost(p: BackendPost): Post {
   const userName =
     typeof p.user === "string"
@@ -58,6 +59,9 @@ export default function Feed() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { topic, setTopic } = useTopic();
+  const [timeFilter, setTimeFilter] = useState("ALL");
+  const [sortOrder, setSortOrder] = useState("DESC");
+  const [followFilter, setFollowFilter] = useState("ALL"); // "ALL" | "FOLLOWING"
 
   useEffect(() => {
     const fetchPosts = async () => {
