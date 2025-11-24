@@ -46,23 +46,35 @@ async function updateMe(patch: Partial<{
   }
   return res.json();
 }
+type BackendPost = {
+  id: number;
+  text: string;
+  topic?: string | null;
+  date?: string | null;
+  created_at?: string | null;
+  image?: string | null;
+  image_url?: string | null;
+};
+
 async function fetchMyLikedPosts(): Promise<Post[]> {
   const res = await authFetch("/api/posts/me/likes");
+
   if (!res.ok) {
     console.error("No se pudieron cargar los posts con like");
     return [];
   }
 
-  const data = await res.json();
+  const data: BackendPost[] = await res.json();
 
-  return data.map((p: any) => ({
+  return data.map((p) => ({
     id: p.id,
     text: p.text,
     topic: p.topic ?? "General",
     date: p.date ?? p.created_at ?? "",
     image: p.image ?? p.image_url ?? undefined,
-  })) as Post[];
+  }));
 }
+
 
 type Post = { id: number; text: string; image?: string; topic: string; date: string };
 type User = { id: string; name: string; username: string };
@@ -307,14 +319,14 @@ export default function ProfilePage() {
                        border border-gray-200"
           >
             <span>💔</span>
-            <span>Quitar “me gusta”</span>
+            <span>Quitar me gusta</span>
           </button>
         </div>
         </article>
       ))}
       {likedPosts.length === 0 && (
         <p className="text-center text-gray-500">
-          Todavía no has dado "me gusta" a ninguna publicación.
+          Todavía no has dado me gusta a ninguna publicación.
         </p>
       )}
     </div> )}
