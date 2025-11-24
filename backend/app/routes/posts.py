@@ -120,7 +120,8 @@ def get_posts():
             "user": user.name if user else "Unknown",
             "topic": post.topic,
             "text": post.text,
-            "image": post.image_url
+            "image": post.image_url,
+            "created_at": post.created_at.replace(tzinfo=timezone.utc).isoformat()
         })
     return jsonify(data)
 
