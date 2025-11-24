@@ -3,32 +3,37 @@ from conftest import create_user, create_post, verify_user_email
 import json
 
 
-def authenticate(client, _db, email="likeuser@example.com", password="secret1"):
-    """
-    Helper: create + verify user + login + return token + user object.
-    """
+def authenticate(client, _db, email="likes@example.com", username="likeuser"):
     user = create_user(
         _db,
-        username="likeuser",
+        username=username,
         name="Like User",
         email=email,
-        password=password
+        password="app-fitness1",
     )
-    assert verify_user_email(email)
 
-    rv = client.post("/auth/login", json={"email": email, "password": password})
+    verify_user_email(user.email)
+
+    rv = client.post(
+        "/auth/login",
+        json={"email": email, "password": "app-fitness1"},  # ✅ use "email" key
+    )
     assert rv.status_code == 200
-    data = rv.get_json()
-    token = data["access_token"]
-    return token, user
+    token = rv.get_json()["access_token"]
 
+    return token, user
 
 def test_like_unlike_post(client, _db):
     """
     Validates POST /api/posts/<id>/like and DELETE /api/posts/<id>/like
     including idempotency.
     """
-    token, user = authenticate(client, _db)
+    token, user = authenticate(
+        client,
+        _db,
+        email="likes@example.com",
+        username="likeuser",       
+    )
     post = create_post(_db, user_id=user.id, text="Hello world!")
 
     headers = {"Authorization": f"Bearer {token}"}
@@ -62,7 +67,12 @@ def test_my_liked_posts_endpoint(client, _db):
     """
     Validates GET /api/posts/me/likes returns only posts liked by this user.
     """
-    token, user = authenticate(client, _db, email="likes2@example.com")
+    token, user = authenticate(
+        client,
+        _db,
+        email="likes2@example.com",
+        username="likeuser2",      
+    )
     p1 = create_post(_db, user_id=user.id, text="Post A")
     p2 = create_post(_db, user_id=user.id, text="Post B")
     p3 = create_post(_db, user_id=user.id, text="Post C")
