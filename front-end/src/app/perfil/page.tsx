@@ -61,6 +61,7 @@ async function fetchMyLikedPosts(): Promise<Post[]> {
 
   if (!res.ok) {
     console.error("No se pudieron cargar los posts con like");
+    console.log("hey")
     return [];
   }
 
