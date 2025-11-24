@@ -76,9 +76,9 @@ export default function SearchBox() {
         abortRef.current?.abort();
         const ac = new AbortController();
         abortRef.current = ac;
-        const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
+
         const res = await fetch(
-          `${API_BASE}/api/search?q=${encodeURIComponent(q)}&limit=5`,
+          `http://127.0.0.1:5000/api/search?q=${encodeURIComponent(q)}&limit=5`,
           { signal: ac.signal }
         );
         if (!res.ok) throw new Error("Search error");
