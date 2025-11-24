@@ -45,7 +45,7 @@ export default function LoginPage() {
           return;
         }
 
-        setError("Correo o contraseña incorrectos");
+        setError("Correo o contraseña incorrectos"); // Mensaje genérico para informar al usuario que las credenciales son inválidas
         return;
 
 
