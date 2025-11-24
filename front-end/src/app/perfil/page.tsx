@@ -125,7 +125,7 @@ const INITIAL_PROFILE: Profile = {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [tab, setTab] = useState<"posts" | "followers" | "following">("posts");
+  const [tab, setTab] = useState<"posts" | "followers" | "following" | "likes">("posts");
   const [profile, setProfile] = useState<Profile>(INITIAL_PROFILE);
   const [loading, setLoading] = useState(true);
   const [likedPosts, setLikedPosts] = useState<Post[]>([]);
