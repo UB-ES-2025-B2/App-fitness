@@ -26,23 +26,29 @@ export default function LoginPage() {
 
       if (!res.ok) {
         const text = await res.text();
-      
+
         interface ErrorPayload {
           error?: string;
           message?: string;
         }
+
         let payload: ErrorPayload | null = null;
         try {
           payload = text ? (JSON.parse(text) as ErrorPayload) : null;
         } catch {
           payload = null;
         }
+
         if (res.status === 403 && /verificar/i.test(payload?.error ?? "")) {
           setError("Tu correo no está verificado. Redirigiendo para verificar…");
           router.push(`/verify-email-start?email=${encodeURIComponent(email)}`);
           return;
         }
-        throw new Error(payload?.error ?? payload?.message ?? text ?? "Credenciales incorrectas");
+
+        setError("Correo o contraseña incorrectos");
+        return;
+
+
       }
 
       const data = await res.json();
@@ -59,12 +65,20 @@ export default function LoginPage() {
       localStorage.setItem("ubfitness_user_id", data.user.id);
 
       router.push("/comunidades");
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error cargando comunidad:", err);
+
+      
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("Ha ocurrido un error inesperado");
+      }
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-100 to-gray-200 px-4">
@@ -109,15 +123,61 @@ export default function LoginPage() {
             />
           </div>
 
-          {error && <p className="text-red-600 text-sm text-center">{error}</p>}
+          {error && (
+            <motion.p
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ 
+                opacity: 1, 
+                y: 0,
+                x: [0, -4, 4, -4, 4, 0], // pequeño shake
+              }}
+              transition={{ duration: 0.35 }}
+              className="text-red-600 text-sm text-center"
+            >
+              {error}
+            </motion.p>
+          )}
+
+
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition-colors"
+            className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2 ${
+              loading ? "opacity-80 cursor-not-allowed" : ""
+            }`}
           >
-            {loading ? "Iniciando..." : "Entrar"}
+            {loading ? (
+              <motion.div
+                className="flex items-center gap-2"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.2 }}
+              >
+                <motion.span
+                  className="inline-block h-4 w-4 border-2 border-white border-t-transparent rounded-full"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 0.7, repeat: Infinity, ease: "linear" }}
+                />
+                <motion.span
+                  initial={{ opacity: 0, x: -4 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  Iniciando...
+                </motion.span>
+              </motion.div>
+            ) : (
+              <motion.span
+                initial={{ opacity: 0, y: -3 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.25 }}
+              >
+                Entrar
+              </motion.span>
+            )}
           </button>
+
         </form>
 
         <p className="text-center text-sm text-gray-600 mt-4">
