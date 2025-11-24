@@ -3,10 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Topic, useTopic } from "./TopicContext";
-import { access } from "fs";
 import { motion } from "framer-motion";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
+const TOPICS: Topic[] = ["Todos", "Fútbol", "Básquet", "Montaña"];
+
 
 type Post = {
   id: number;
@@ -17,6 +18,7 @@ type Post = {
   image?: string;
   likeCount?: number;
   likedByMe?: boolean;
+  date?: string;
 };
 
 type BackendPost = {
@@ -25,13 +27,12 @@ type BackendPost = {
   topic?: string | null;
   image?: string | null;
   date?: string | null;
+  created_at?: string | null;
+  timestamp?: string | null;
   user?: { id: number; username: string; name?: string | null } | null;
   likes?: number;
   liked?: boolean;
 };
-
-const TOPICS: Topic[] = ["Todos", "Fútbol", "Básquet", "Montaña"];
-
 
 function normalizePost(p: BackendPost): Post {
   const userName =
@@ -39,17 +40,26 @@ function normalizePost(p: BackendPost): Post {
       ? p.user
       : p.user?.name || p.user?.username || "Usuari";
 
-  const userId = typeof p.user === "object" && p.user?.id ? p.user.id : undefined;
+  const userId =
+    typeof p.user === "object" && p.user?.id ? p.user.id : undefined;
+
+  // Obtenemos la mejor fecha disponible
+  const bestDate =
+    p.date ||
+    p.created_at ||
+    p.timestamp ||
+    new Date().toISOString(); // fallback seguro
 
   return {
     id: p.id,
     text: p.text,
-    topic: (p.topic ?? "General") as string,
+    topic: p.topic ?? "General",
     image: p.image ?? undefined,
     user: userName,
     userId,
     likeCount: p.likes ?? 0,
     likedByMe: p.liked ?? false,
+    date: bestDate,
   };
 }
 
@@ -59,9 +69,10 @@ export default function Feed() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { topic, setTopic } = useTopic();
+
   const [timeFilter, setTimeFilter] = useState("ALL");
   const [sortOrder, setSortOrder] = useState("DESC");
-  const [followFilter, setFollowFilter] = useState("ALL"); // "ALL" | "FOLLOWING"
+  const [followFilter, setFollowFilter] = useState("ALL");
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -101,6 +112,7 @@ export default function Feed() {
       const detail = (e as CustomEvent<Post>).detail;
       setPosts((prev) => [detail, ...prev]);
     };
+
     window.addEventListener("new-post", onNewPost as EventListener);
     return () => window.removeEventListener("new-post", onNewPost as EventListener);
   }, []);
@@ -119,7 +131,6 @@ export default function Feed() {
           try {
             const parsed = JSON.parse(raw);
             accessToken = parsed.access_token;
-            console.log("accessToken used in like:", accessToken);
           } catch (e) {
             console.error("Invalid ubfitness_tokens in localStorage", e);
           }
@@ -140,16 +151,12 @@ export default function Feed() {
             return;
           }
 
-          const data = await res.json(); // { liked, likes }
+          const data = await res.json();
 
           setPosts((prev2) =>
             prev2.map((p) =>
               p.id === postId
-                ? {
-                  ...p,
-                  likedByMe: data.liked,
-                  likeCount: data.likes,
-                }
+                ? { ...p, likedByMe: data.liked, likeCount: data.likes }
                 : p
             )
           );
@@ -162,43 +169,103 @@ export default function Feed() {
     });
   };
 
+  // ------------------------------
+  // Loading
+  // ------------------------------
   if (loading)
-  return (
-    <div className="flex flex-col items-center justify-center h-[70vh]">
-      <motion.div
-        className="h-10 w-10 border-4 border-blue-500 border-t-transparent rounded-full"
-        animate={{ rotate: 360 }}
-        transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
-      />
-      <motion.p
-        className="mt-4 text-gray-600 dark:text-gray-300 text-lg"
-        initial={{ opacity: 0, y: 5 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-      >
-        Carregant publicacions...
-      </motion.p>
-    </div>
-  );
+    return (
+      <div className="flex flex-col items-center justify-center h-[70vh]">
+        <motion.div
+          className="h-10 w-10 border-4 border-blue-500 border-t-transparent rounded-full"
+          animate={{ rotate: 360 }}
+          transition={{ duration: 0.8, repeat: Infinity, ease: "linear" }}
+        />
+        <motion.p
+          className="mt-4 text-gray-600 dark:text-gray-300 text-lg"
+          initial={{ opacity: 0, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          Carregant publicacions...
+        </motion.p>
+      </div>
+    );
 
-  if (error) return <p className="text-center text-red-500 mt-10">{error}</p>;
-  if (posts.length === 0)
-    return <p className="text-center mt-10 text-gray-500 dark:text-gray-400">No hi ha contingut per mostrar.</p>;
+  // ------------------------------
+  // Error
+  // ------------------------------
+  if (error)
+    return <p className="text-center text-red-500 mt-10">{error}</p>;
 
-  const visible = posts.filter((p) => topic === "Todos" || p.topic === topic);
+  // ------------------------------
+  // Visible posts (filtered)
+  // ------------------------------
+  const now = new Date();
 
+  const filterByTime = (post: Post) => {
+    if (!post.date || timeFilter === "ALL") return true;
+
+    const date = new Date(post.date);
+    const diffMs = now.getTime() - date.getTime();
+    const hour = 3600 * 1000;
+    const day = 24 * hour;
+    const month = 30 * day;
+    const year = 365 * day;
+
+    switch (timeFilter) {
+      case "1H":
+        return diffMs <= hour;
+      case "1D":
+        return diffMs <= day;
+      case "1M":
+        return diffMs <= month;
+      case "6M":
+        return diffMs <= 6 * month;
+      case "1Y":
+        return diffMs <= year;
+      default:
+        return true;
+    }
+  };
+
+  let visible = posts
+    .filter((p) => topic === "Todos" || p.topic === topic)
+    .filter(filterByTime)
+    .sort((a, b) => {
+      const da = new Date(a.date ?? "").getTime();
+      const db = new Date(b.date ?? "").getTime();
+      return sortOrder === "DESC" ? db - da : da - db;
+    });
+
+  // ------------------------------
+  // No content
+  // ------------------------------
+  if (visible.length === 0)
+    return <p className="text-center mt-10 text-gray-500">No hi ha contingut per mostrar.</p>;
+
+  // ------------------------------
+  // View
+  // ------------------------------
   return (
     <section className="w-full py-4 fade-in">
       <div className="mb-4 flex items-center justify-between">
         <TopicDropdown topic={topic} setTopic={setTopic} topics={TOPICS} />
       </div>
 
-      <div className="space-y-6">
+      <FeedFilters
+        timeFilter={timeFilter}
+        setTimeFilter={setTimeFilter}
+        sortOrder={sortOrder}
+        setSortOrder={setSortOrder}
+        followFilter={followFilter}
+        setFollowFilter={setFollowFilter}
+      />
+
+      <div className="space-y-6 mt-4">
         {visible.map((post) => (
           <article
             key={post.id}
-            className="bg-white dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700
-                       rounded-2xl p-5 shadow-sm hover:shadow-lg transition-shadow duration-300"
+            className="bg-white dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm hover:shadow-lg transition-shadow duration-300"
           >
             <div className="flex items-center justify-between mb-2">
               {post.userId ? (
@@ -227,6 +294,7 @@ export default function Feed() {
                 />
               </div>
             )}
+
             <div className="mt-3 flex items-center gap-3">
               <button
                 onClick={() => handleToggleLike(post.id)}
@@ -243,6 +311,9 @@ export default function Feed() {
   );
 }
 
+/* ---------------------------------------------------------------
+   TOPIC DROPDOWN
+----------------------------------------------------------------*/
 function TopicDropdown({
   topic,
   setTopic,
@@ -275,9 +346,7 @@ function TopicDropdown({
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 dark:border-slate-600 
-                   bg-white dark:bg-slate-700/60 shadow-sm hover:bg-blue-50 dark:hover:bg-slate-600 
-                   text-sm transition-all"
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700/60 shadow-sm hover:bg-blue-50 dark:hover:bg-slate-600 text-sm transition-all"
       >
         <span>Temàtica:</span>
         <span className="font-medium text-blue-700 dark:text-blue-400">{topic}</span>
@@ -296,8 +365,7 @@ function TopicDropdown({
         <ul
           role="listbox"
           aria-label="Seleccionar temàtica"
-          className="absolute z-40 mt-2 w-56 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 
-                     rounded-xl shadow-xl p-1 backdrop-blur-sm"
+          className="absolute z-40 mt-2 w-56 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl shadow-xl p-1 backdrop-blur-sm"
         >
           {topics.map((t) => {
             const active = t === topic;
@@ -307,10 +375,11 @@ function TopicDropdown({
                   role="option"
                   aria-selected={active}
                   onClick={() => onSelect(t)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${active
-                    ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium"
-                    : "hover:bg-blue-50 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200"
-                    }`}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                    active
+                      ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium"
+                      : "hover:bg-blue-50 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200"
+                  }`}
                 >
                   {t}
                 </button>
@@ -319,6 +388,89 @@ function TopicDropdown({
           })}
         </ul>
       )}
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------
+   FEED FILTERS
+----------------------------------------------------------------*/
+function FeedFilters({
+  timeFilter,
+  setTimeFilter,
+  sortOrder,
+  setSortOrder,
+  followFilter,
+  setFollowFilter,
+}: {
+  timeFilter: string;
+  setTimeFilter: (v: string) => void;
+  sortOrder: string;
+  setSortOrder: (v: string) => void;
+  followFilter: string;
+  setFollowFilter: (v: string) => void;
+}) {
+  const timeOptions = [
+    { value: "ALL", label: "Todo" },
+    { value: "1H", label: "Hace 1 hora" },
+    { value: "1D", label: "Hace 1 día" },
+    { value: "1M", label: "Hace 1 mes" },
+    { value: "6M", label: "Hace 6 meses" },
+    { value: "1Y", label: "Hace 1 año" },
+  ];
+
+  return (
+    <div className="bg-white dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 rounded-xl p-3 shadow-sm flex flex-wrap gap-2">
+      
+      <button
+        onClick={() => setFollowFilter(followFilter === "ALL" ? "FOLLOWING" : "ALL")}
+        className={`px-3 py-1.5 rounded-full text-xs border ${
+          followFilter === "FOLLOWING"
+            ? "bg-blue-600 text-white border-blue-600"
+            : "bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100"
+        }`}
+      >
+        Solo seguidos
+      </button>
+
+      {timeOptions.map((opt) => (
+        <button
+          key={opt.value}
+          onClick={() => setTimeFilter(opt.value)}
+          className={`px-3 py-1.5 rounded-full text-xs border ${
+            timeFilter === opt.value
+              ? "bg-emerald-500 text-white border-emerald-500 shadow-sm"
+              : "bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100"
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
+
+      <div className="flex items-center gap-1 ml-auto">
+        <button
+          onClick={() => setSortOrder("DESC")}
+          className={`px-3 py-1.5 rounded-full text-xs border ${
+            sortOrder === "DESC"
+              ? "bg-blue-600 text-white border-blue-600"
+              : "bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100"
+          }`}
+        >
+          Más reciente
+        </button>
+
+        <button
+          onClick={() => setSortOrder("ASC")}
+          className={`px-3 py-1.5 rounded-full text-xs border ${
+            sortOrder === "ASC"
+              ? "bg-blue-600 text-white border-blue-600"
+              : "bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100"
+          }`}
+        >
+          Más antiguo
+        </button>
+      </div>
+
     </div>
   );
 }
