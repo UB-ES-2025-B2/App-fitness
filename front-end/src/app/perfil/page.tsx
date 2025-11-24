@@ -183,7 +183,7 @@ export default function ProfilePage() {
       if (!res.ok) {
         const text = await res.text();
         console.error("Error al quitar me gusta:", res.status, text);
-        alert("No se pudo quitar el me gusta.");
+        alert("No se pudo quitar el me gusta."); 
         return;
       }
 
