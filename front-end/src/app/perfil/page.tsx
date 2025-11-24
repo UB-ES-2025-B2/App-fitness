@@ -46,6 +46,15 @@ async function updateMe(patch: Partial<{
   }
   return res.json();
 }
+type BackendPost = {
+  id: number;
+  text: string;
+  topic?: string | null;
+  date?: string | null;
+  created_at?: string | null;
+  image?: string | null;
+  image_url?: string | null;
+};
 async function fetchMyLikedPosts(): Promise<Post[]> {
   const res = await authFetch("/api/posts/me/likes");
   if (!res.ok) {
@@ -53,15 +62,15 @@ async function fetchMyLikedPosts(): Promise<Post[]> {
     return [];
   }
 
-  const data = await res.json();
+  const data: BackendPost[] = await res.json();
 
-  return data.map((p: any) => ({
+  return data.map((p) => ({
     id: p.id,
     text: p.text,
     topic: p.topic ?? "General",
     date: p.date ?? p.created_at ?? "",
     image: p.image ?? p.image_url ?? undefined,
-  })) as Post[];
+  }));
 }
 
 type Post = { id: number; text: string; image?: string; topic: string; date: string };
@@ -131,7 +140,7 @@ export default function ProfilePage() {
       if (!res.ok) {
         const text = await res.text();
         console.error("Error al quitar me gusta:", res.status, text);
-        alert("No se pudo quitar el 'me gusta'.");
+        alert("No se pudo quitar el me gusta.");
         return;
       }
 
@@ -139,7 +148,7 @@ export default function ProfilePage() {
       setLikedPosts((prev) => prev.filter((p) => p.id !== postId));
     } catch (err) {
       console.error("Error al quitar me gusta:", err);
-      alert("Error al quitar el 'me gusta'.");
+      alert("Error al quitar el me gusta.");
     }
   };
 
@@ -307,14 +316,14 @@ export default function ProfilePage() {
                        border border-gray-200"
           >
             <span>💔</span>
-            <span>Quitar “me gusta”</span>
+            <span>Quitar me gusta</span>
           </button>
         </div>
         </article>
       ))}
       {likedPosts.length === 0 && (
         <p className="text-center text-gray-500">
-          Todavía no has dado "me gusta" a ninguna publicación.
+          Todavía no has dado me gusta a ninguna publicación.
         </p>
       )}
     </div> )}
