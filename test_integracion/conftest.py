@@ -3,10 +3,10 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
-from app.models import User, Post, EmailVerification
+from backend.app.models import User, Post, EmailVerification
 
 from datetime import datetime
-from app import create_app, db
+from backend.app import create_app, db
 
 
 @pytest.fixture
