@@ -7,16 +7,8 @@ Acceptance criteria tested:
 """
 
 import pytest
-from conftest import create_user
+from conftest import create_user, verify_user
 import jwt
-from app.models.email_verification import EmailVerification
-from datetime import datetime
-
-
-def verify_user(_db, user):
-    ev = EmailVerification(user_id=user.id, verified_at=datetime.utcnow())
-    _db.session.add(ev)
-    _db.session.commit()
 
 
 def login_and_get_tokens(client, email, password):

@@ -16,6 +16,8 @@ os.environ['SECRET_KEY'] = 'test-secret'
 from app import create_app, db
 from app.models.user_model import User
 from app.models.post_model import Post
+from app.models.email_verification import EmailVerification
+from datetime import datetime
 
 
 @pytest.fixture(scope='function')
@@ -66,3 +68,10 @@ def create_post(_db, user_id, topic='general', text='hello', image_url=None):
     _db.session.add(p)
     _db.session.commit()
     return p
+
+
+def verify_user(_db, user):
+    """Helper function to mark a user's email as verified."""
+    ev = EmailVerification(user_id=user.id, verified_at=datetime.utcnow())
+    _db.session.add(ev)
+    _db.session.commit()

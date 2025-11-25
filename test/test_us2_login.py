@@ -7,15 +7,7 @@ Acceptance criteria tested:
 """
 
 import pytest
-from conftest import create_user
-from app.models.email_verification import EmailVerification
-from datetime import datetime
-
-
-def verify_user(_db, user):
-    ev = EmailVerification(user_id=user.id, verified_at=datetime.utcnow())
-    _db.session.add(ev)
-    _db.session.commit()
+from conftest import create_user, verify_user
 
 
 def test_login_with_email(client, _db):
