@@ -30,5 +30,5 @@ export default function LogoutButton() {
     >
       {loading ? "Saliendo..." : "Cerrar sesión"}
     </button>
-  );
+  ); // Faltaria afegir que tornes a la pagina de login i esborrar tokens
 }
