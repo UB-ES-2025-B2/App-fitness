@@ -1,7 +1,6 @@
 import os
 import sys
 import pytest
-from app.models.email_verification import EmailVerification
 from datetime import datetime
 
 # Ensure backend package is importable
@@ -9,6 +8,8 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 BACKEND_PATH = os.path.join(ROOT, 'backend')
 if BACKEND_PATH not in sys.path:
     sys.path.insert(0, BACKEND_PATH)
+
+from app.models.email_verification import EmailVerification
 
 # Ensure the application uses an in-memory SQLite DB for tests.
 # Must be set before importing the Flask app/config so Config picks it up.
