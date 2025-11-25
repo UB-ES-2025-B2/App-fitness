@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 
 import ProfileAvatar from "../components/ProfileAvatar";
 
@@ -488,7 +489,18 @@ export default function ProfilePage() {
       {likedPosts.map((p) => (
         <article key={p.id} className="bg-white rounded-2xl shadow-md p-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-medium">{p.user?.name || p.user?.username || "Usuario"}</h3>
+              <h3 className="font-medium">{p.user?.id ? (
+              <Link
+                href={`/usuario/${p.user.id}`}
+                className="font-medium text-blue-600 hover:underline"
+              >
+                {p.user.name || p.user.username || "Usuario"}
+              </Link>
+            ) : (
+              <h3 className="font-medium">
+                {p.user?.name || p.user?.username || "Usuario"}
+              </h3>
+            )}</h3>
             {p.date && (
               <span className="text-xs text-gray-500">
                 {p.topic} · {new Date(p.date).toLocaleDateString()}
