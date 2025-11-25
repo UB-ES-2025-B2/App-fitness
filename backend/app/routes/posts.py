@@ -1,4 +1,5 @@
-from flask import Blueprint, jsonify, request, g
+from flask import Blueprint, jsonify, request, g, current_app
+import jwt
 from app.models.post_model import Post
 from app.models.user_model import User
 from app.models.post_like_model import PostLike
@@ -9,14 +10,31 @@ bp = Blueprint("posts", __name__, url_prefix="/api/posts")
 
 
 @bp.get("/")
-@token_required
-def list_posts(current_user):
+def list_posts():
+    """
+    Lista todos los posts.
+    - Si viene Authorization: Bearer <token>, intenta decodificar y usar user_id
+      para calcular likedByMe.
+    - Si no viene o es inválido, responde igualmente con 200 y likedByMe=False.
+    """
+    current_user_id = None
+
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        token = auth_header.split(" ", 1)[1].strip()
+        try:
+            payload = jwt.decode(
+                token,
+                current_app.config["SECRET_KEY"],
+                algorithms=["HS256"],
+            )
+            current_user_id = payload.get("user_id")
+        except Exception as e:
+            current_app.logger.debug(f"Invalid token in /api/posts/: {e}")
+            # seguimos con current_user_id = None
+
     posts = Post.query.order_by(Post.created_at.desc()).all()
-    payload = []
-    for p in posts:
-        d = p.to_dict(current_user_id=current_user.id) 
-        #d["likes"] = p.liked_by.count()
-        payload.append(d)
+    payload = [p.to_dict(current_user_id=current_user_id) for p in posts]
     return jsonify(payload)
 
 @bp.get("/user/<int:user_id>")
