@@ -7,9 +7,16 @@ Acceptance criteria tested:
 """
 
 import pytest
-
 from conftest import create_user
 import jwt
+from app.models.email_verification import EmailVerification
+from datetime import datetime
+
+
+def verify_user(_db, user):
+    ev = EmailVerification(user_id=user.id, verified_at=datetime.utcnow())
+    _db.session.add(ev)
+    _db.session.commit()
 
 
 def login_and_get_tokens(client, email, password):
@@ -29,6 +36,7 @@ def test_update_profile_put(client, _db):
 
 def test_auth_me_get_and_patch(client, _db):
     user = create_user(_db, username='meuser', name='MeName', email='me@example.com', password='mepwd')
+    verify_user(_db, user)
     tokens = login_and_get_tokens(client, 'me@example.com', 'mepwd')
     access = tokens.get('access_token')
     headers = {'Authorization': f'Bearer {access}'}

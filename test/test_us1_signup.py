@@ -40,9 +40,9 @@ def test_success_and_uniqueness(client, _db):
     rv = client.post('/auth/register', json=payload)
     assert rv.status_code == 201
     data = rv.get_json()
-    assert data.get('access_token')
-    assert data.get('refresh_token')
-    assert data.get('user')
+    # After merge, register does not return tokens, it requires email verification
+    assert data.get('message')
+    assert data.get('needs_verification') is True
 
     # Try to register with same email
     payload2 = {"username": "another", "name": "Name2", "email": "unique@example.com", "password": "secret2"}

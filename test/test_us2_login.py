@@ -7,12 +7,20 @@ Acceptance criteria tested:
 """
 
 import pytest
-
 from conftest import create_user
+from app.models.email_verification import EmailVerification
+from datetime import datetime
+
+
+def verify_user(_db, user):
+    ev = EmailVerification(user_id=user.id, verified_at=datetime.utcnow())
+    _db.session.add(ev)
+    _db.session.commit()
 
 
 def test_login_with_email(client, _db):
     user = create_user(_db, username='u_login', name='LoginName', email='login@example.com', password='mypwd1')
+    verify_user(_db, user)
     rv = client.post('/auth/login', json={"email": "login@example.com", "password": "mypwd1"})
     assert rv.status_code == 200
     d = rv.get_json()
@@ -23,6 +31,7 @@ def test_login_with_email(client, _db):
 
 def test_login_with_name(client, _db):
     user = create_user(_db, username='u_login2', name='NameLogin', email='login2@example.com', password='pass123')
+    verify_user(_db, user)
     rv = client.post('/auth/login', json={"email": "NameLogin", "password": "pass123"})
     assert rv.status_code == 200
     d = rv.get_json()

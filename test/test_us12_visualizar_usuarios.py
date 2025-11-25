@@ -6,7 +6,14 @@ Acceptance criteria tested:
 """
 
 import pytest
-from conftest import create_user, create_post, verify_user_email
+from conftest import create_user, create_post
+from app.models.email_verification import EmailVerification
+from datetime import datetime
+
+def verify_user(_db, user):
+    ev = EmailVerification(user_id=user.id, verified_at=datetime.utcnow())
+    _db.session.add(ev)
+    _db.session.commit()
 
 def get_auth_header(client, email, password):
     resp = client.post('/auth/login', json={'email': email, 'password': password})
@@ -151,7 +158,7 @@ def test_follow_user(client, _db):
     Verifica que un usuario puede seguir a otro
     """
     user1 = create_user(_db, username='me', name='Me', email='me@example.com')
-    verify_user_email('me@example.com')
+    verify_user(_db, user1)
     user2 = create_user(_db, username='target', name='Target', email='target@example.com')
     
     headers = get_auth_header(client, 'me@example.com', 'secret1')
@@ -175,7 +182,7 @@ def test_follow_user_twice(client, _db):
     Verifica que seguir a un usuario dos veces no duplica el seguimiento
     """
     user1 = create_user(_db, username='u1', name='U1', email='u1@example.com')
-    verify_user_email('u1@example.com')
+    verify_user(_db, user1)
     user2 = create_user(_db, username='u2', name='U2', email='u2@example.com')
     
     headers = get_auth_header(client, 'u1@example.com', 'secret1')
@@ -198,7 +205,7 @@ def test_follow_self_fails(client, _db):
     Verifica que un usuario no puede seguirse a sí mismo
     """
     user = create_user(_db, username='myself', name='Myself', email='myself@example.com')
-    verify_user_email('myself@example.com')
+    verify_user(_db, user)
     
     headers = get_auth_header(client, 'myself@example.com', 'secret1')
 
@@ -211,7 +218,7 @@ def test_unfollow_user(client, _db):
     Verifica que un usuario puede dejar de seguir a otro
     """
     user1 = create_user(_db, username='follower1', name='Follower', email='follower1@example.com')
-    verify_user_email('follower1@example.com')
+    verify_user(_db, user1)
     user2 = create_user(_db, username='followed', name='Followed', email='followed@example.com')
     
     headers = get_auth_header(client, 'follower1@example.com', 'secret1')
