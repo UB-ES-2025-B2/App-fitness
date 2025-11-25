@@ -12,6 +12,8 @@ type Post = {
   topic: string;
   text: string;
   image?: string;
+  likeCount: number;
+  likedByMe: boolean;
 };
 
 type BackendPost = {

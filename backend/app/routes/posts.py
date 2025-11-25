@@ -85,7 +85,7 @@ def like_post(current_user, post_id):
         post.liked_by.append(current_user)
         db.session.commit()
         
-    return jsonify({"message": "Liked", "likes": post.liked_by.count(), "liked": True}), 200
+    return jsonify({"message": "Liked!", "likes": post.liked_by.count(), "liked": True}), 200
 
 
 @bp.delete("/<int:post_id>/like")
