@@ -27,11 +27,12 @@ async function getCommunities(): Promise<Community[]> {
 export default async function FollowedCommunities() {
   const communities = await getCommunities();
 
+  
   return (
     <aside className="hidden lg:block">
       <div className="lg:sticky lg:top-24">
 
-        {/* PANEL ANIMADO */}
+        {/* PANEL ANIMADO VERTICAL */}
         <div
           className="
             relative group
@@ -39,22 +40,29 @@ export default async function FollowedCommunities() {
             backdrop-blur-md bg-white/80 dark:bg-slate-800/60
             border border-gray-200 dark:border-slate-700
             transition-all duration-300
-            w-[70px] hover:w-[260px]
+            w-[260px]
+            h-[60px] group-hover:h-[350px]
             overflow-hidden
-            p-4
+            mx-auto  /* 💥 LO CENTREM RESPECTE LA COLUMNA */
           "
         >
-          {/* TÍTULO */}
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            Mis comunidades
-          </h3>
 
-          {/* LISTADO */}
-          <ul className="space-y-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            {communities.map((c) => (
-              <li key={c.id}>
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
+          {/* ICONO MODO COLAPSADO */}
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 group-hover:hidden">
+            <span className="text-2xl">👥</span>
+          </div>
+
+          {/* CONTINGUT COMPLET */}
+          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-4">
+
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">
+              Mis comunidades
+            </h3>
+
+            <ul className="space-y-2">
+              {communities.map((c) => (
+                <li key={c.id}>
+                  <div>
                     <Link
                       href={`/c/${c.id}`}
                       className="block text-sm font-medium text-blue-600 truncate hover:underline"
@@ -66,24 +74,19 @@ export default async function FollowedCommunities() {
                       {c.topic} · {c.members.toLocaleString()} miembros
                     </p>
                   </div>
-                </div>
-              </li>
-            ))}
-          </ul>
+                </li>
+              ))}
+            </ul>
 
-          {/* VER TODAS */}
-          <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <Link
-              href="/comunidades"
-              className="text-xs text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
-            >
-              Ver todas →
-            </Link>
-          </div>
+            <div className="mt-3">
+              <Link
+                href="/comunidades"
+                className="text-xs text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+              >
+                Ver todas →
+              </Link>
+            </div>
 
-          {/* ICONO CUANDO ESTÁ CERRADO (modo compacto) */}
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 group-hover:hidden">
-            <span className="text-xl">👥</span>
           </div>
 
         </div>
