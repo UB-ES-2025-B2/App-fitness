@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import React from "react";
 import Link from "next/link";
 
@@ -49,6 +49,8 @@ export default function CommunityPage({ params }: { params: Promise<{ communityI
   const [joining, setJoining] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMember, setIsMember] = useState(false);
+  const communityButtonRef = useRef<HTMLButtonElement | null>(null);
+
 
 
 const formatDate = (iso: string) => {
@@ -106,6 +108,17 @@ const formatDate = (iso: string) => {
 
     fetchData();
   }, [communityId]);
+
+  useEffect(() => {
+    if (!loading && communityButtonRef.current) {
+      try {
+        communityButtonRef.current.scrollIntoView({ block: "center", behavior: "auto" });
+      } catch {
+        communityButtonRef.current.scrollIntoView();
+      }
+    }
+  }, [loading]);
+
 
   // Funció per apuntar-se o desapuntar-se
   const toggleJoinEvent = async (eventId: number) => {
@@ -195,6 +208,7 @@ const formatDate = (iso: string) => {
               <p className="text-gray-300">{community.description}</p>
 
               <button
+                ref={communityButtonRef}
                 onClick={toggleCommunityMembership}
                 className="mt-4 w-full py-2 px-4 rounded-md text-white font-medium relative z-[9999]"
                 style={buttonStyle}
