@@ -57,7 +57,8 @@ def get_profile(user_id):
             if current_user:
                 is_following = current_user.following.filter_by(id=user_id).first() is not None
                 profile_data["is_following"] = is_following
-        except:
+        except (jwt.DecodeError, jwt.ExpiredSignatureError, jwt.InvalidTokenError, KeyError):
+            # Token is invalid, expired, or missing required claims - profile still accessible without follow status
             pass
 
     return jsonify(profile_data)
