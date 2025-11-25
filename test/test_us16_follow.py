@@ -1,5 +1,12 @@
 import pytest
-from conftest import create_user, verify_user_email
+from conftest import create_user
+from app.models.email_verification import EmailVerification
+from datetime import datetime
+
+def verify_user(_db, user):
+    ev = EmailVerification(user_id=user.id, verified_at=datetime.utcnow())
+    _db.session.add(ev)
+    _db.session.commit()
 
 def get_auth_header(client, email, password):
     resp = client.post('/auth/login', json={'email': email, 'password': password})
@@ -13,9 +20,9 @@ def test_follow_flow(client, _db):
     """
     # Create users
     u1 = create_user(_db, username='alice', name='Alice', email='alice@example.com')
-    verify_user_email('alice@example.com')
+    verify_user(_db, u1)
     u2 = create_user(_db, username='bob', name='Bob', email='bob@example.com')
-    verify_user_email('bob@example.com')
+    verify_user(_db, u2)
     u3 = create_user(_db, username='charlie', name='Charlie', email='charlie@example.com')
 
     # Login as Alice
@@ -67,7 +74,7 @@ def test_follow_multiple(client, _db):
     US16: Test following multiple users
     """
     u1 = create_user(_db, username='user1', name='User 1', email='u1@test.com')
-    verify_user_email('u1@test.com')
+    verify_user(_db, u1)
     u2 = create_user(_db, username='user2', name='User 2', email='u2@test.com')
     u3 = create_user(_db, username='user3', name='User 3', email='u3@test.com')
 
@@ -88,7 +95,7 @@ def test_followers_following_structure(client, _db):
     US16 Task 2: Verify structure of followers/following lists
     """
     u1 = create_user(_db, username='struct1', name='Struct User 1', email='s1@test.com', avatar_url='http://avatar.com/1.jpg')
-    verify_user_email('s1@test.com')
+    verify_user(_db, u1)
     u2 = create_user(_db, username='struct2', name='Struct User 2', email='s2@test.com', avatar_url='http://avatar.com/2.jpg')
 
     headers = get_auth_header(client, 's1@test.com', 'secret1')
