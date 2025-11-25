@@ -160,6 +160,7 @@ export default function ProfilePage() {
           // Backend returns: { id, text, topic, image, date }
           // Frontend expects: { id, text, image?, topic, date }
           // It matches mostly, just need to ensure image is handled
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           setPosts(postsData.map((p: any) => ({
             ...p,
             image: p.image || undefined
