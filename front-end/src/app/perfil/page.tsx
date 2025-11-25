@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 
 import ProfileAvatar from "../components/ProfileAvatar";
+import UserListModal from "../components/UserListModal";
 
 import { useRouter } from "next/navigation";
 import { authFetch, getTokens, clearTokens } from "../lib/api";
@@ -20,6 +21,13 @@ type ApiUser = {
   bio?: string;
   ocultar_info?: boolean;
   preferences?: Array<"Fútbol" | "Básquet" | "Montaña"> | string[]; // por si back devuelve otros ids
+};
+
+type UserSummary = {
+  id: number;
+  username: string;
+  name: string;
+  avatarUrl: string | null;
 };
 
 async function fetchMe(): Promise<ApiUser | null> {
@@ -48,23 +56,7 @@ async function updateMe(patch: Partial<{
 }
 
 type Post = { id: number; text: string; image?: string; topic: string; date: string };
-type User = { id: string; name: string; username: string };
 type Community = { id: string; name: string; topic: string };
-
-const MY_POSTS: Post[] = [
-  { id: 101, text: "Series de cuestas esta mañana 💪", topic: "Montaña", date: "2025-10-10", image: './images/MontanaCuesta.png' },
-  { id: 102, text: "Partidillo con amigos ⚽️", topic: "Fútbol", date: "2025-10-07", image: './images/pachanga.png' },
-];
-
-const MY_FOLLOWERS: User[] = [
-  { id: "u1", name: "LauraFit", username: "laura.fit" },
-  { id: "u2", name: "MaxRunner", username: "max.runner" },
-];
-
-const MY_FOLLOWING_USERS: User[] = [
-  { id: "u3", name: "Álex", username: "alex.bcn" },
-  { id: "u4", name: "Sofía", username: "sofi.trail" },
-];
 
 const MY_FOLLOWING_COMMUNITIES: Community[] = [
   { id: "pirineos", name: "Pirineos Trail", topic: "Montaña" },
@@ -103,6 +95,15 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile>(INITIAL_PROFILE);
   const [loading, setLoading] = useState(true);
 
+  // Listas de seguidores/seguidos
+  const [followersList, setFollowersList] = useState<UserSummary[]>([]);
+  const [followingList, setFollowingList] = useState<UserSummary[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
+  
+  // Modal
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<"followers" | "following">("followers");
+
   useEffect(() => {
     // si no hay tokens -> a /login
     if (!getTokens()) {
@@ -134,6 +135,39 @@ export default function ProfilePage() {
           : [],
         ocultarInfo: typeof me.ocultar_info === "boolean" ? me.ocultar_info : true,
       });
+
+      // Cargar seguidores, seguidos y posts
+      try {
+        const [followersRes, followingRes, postsRes] = await Promise.all([
+          authFetch(`/api/users/${me.id}/followers`),
+          authFetch(`/api/users/${me.id}/following`),
+          authFetch(`/api/users/${me.id}/posts`)
+        ]);
+
+        if (followersRes.ok) {
+          const followersData = await followersRes.json();
+          setFollowersList(followersData);
+        }
+        
+        if (followingRes.ok) {
+          const followingData = await followingRes.json();
+          setFollowingList(followingData);
+        }
+
+        if (postsRes.ok) {
+          const postsData = await postsRes.json();
+          // Map backend post format to frontend Post type if needed
+          // Backend returns: { id, text, topic, image, date }
+          // Frontend expects: { id, text, image?, topic, date }
+          // It matches mostly, just need to ensure image is handled
+          setPosts(postsData.map((p: any) => ({
+            ...p,
+            image: p.image || undefined
+          })));
+        }
+      } catch (error) {
+        console.error("Error cargando datos del perfil", error);
+      }
 
       setLoading(false);
     })();
@@ -190,9 +224,25 @@ export default function ProfilePage() {
 
         {/* Stats */}
         <div className="mt-4 grid grid-cols-3 divide-x rounded-lg bg-gray-50">
-          <Stat label="Publicaciones" value={MY_POSTS.length} />
-          <Stat label="Seguidores" value={MY_FOLLOWERS.length} />
-          <Stat label="Seguidos" value={MY_FOLLOWING_USERS.length + MY_FOLLOWING_COMMUNITIES.length} />
+          <Stat label="Publicaciones" value={posts.length} />
+          <div 
+            className="cursor-pointer hover:bg-gray-100 transition-colors rounded-lg"
+            onClick={() => {
+              setModalType("followers");
+              setModalOpen(true);
+            }}
+          >
+            <Stat label="Seguidores" value={followersList.length} />
+          </div>
+          <div 
+            className="cursor-pointer hover:bg-gray-100 transition-colors rounded-lg"
+            onClick={() => {
+              setModalType("following");
+              setModalOpen(true);
+            }}
+          >
+            <Stat label="Seguidos" value={followingList.length + MY_FOLLOWING_COMMUNITIES.length} />
+          </div>
         </div>
 
         {/* Tabs */}
@@ -207,7 +257,7 @@ export default function ProfilePage() {
       <section>
         {tab === "posts" && (
           <div className="space-y-4">
-            {MY_POSTS.map((p) => (
+            {posts.map((p) => (
               <article key={p.id} className="bg-white rounded-2xl shadow-md p-4">
                 <div className="flex items-center justify-between">
                   <h3 className="font-medium">{profile.nombre}</h3>
@@ -221,23 +271,38 @@ export default function ProfilePage() {
                 )}
               </article>
             ))}
-            {MY_POSTS.length === 0 && (
+            {posts.length === 0 && (
               <p className="text-center text-gray-500">Aún no hay publicaciones.</p>
             )}
           </div>
         )}
 
         {tab === "followers" && (
-          <ListUsers title="Seguidores" users={MY_FOLLOWERS} emptyText="Aún no tienes seguidores." />
+          <ListUsers 
+            title="Seguidores" 
+            users={followersList.map(u => ({ id: String(u.id), name: u.name, username: u.username }))} 
+            emptyText="Aún no tienes seguidores." 
+          />
         )}
 
         {tab === "following" && (
           <div className="space-y-6">
-            <ListUsers title="Usuarios seguidos" users={MY_FOLLOWING_USERS} emptyText="No sigues a nadie." />
+            <ListUsers 
+              title="Usuarios seguidos" 
+              users={followingList.map(u => ({ id: String(u.id), name: u.name, username: u.username }))} 
+              emptyText="No sigues a nadie." 
+            />
             <ListCommunities title="Comunidades seguidas" communities={MY_FOLLOWING_COMMUNITIES} emptyText="No sigues comunidades." />
           </div>
         )}
       </section>
+
+      <UserListModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={modalType === "followers" ? "Seguidores" : "Seguidos"}
+        users={modalType === "followers" ? followersList : followingList}
+      />
     </div>
   );
 }
