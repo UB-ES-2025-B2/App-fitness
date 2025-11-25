@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
+import UserListModal from "../../components/UserListModal";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
 
@@ -14,6 +15,14 @@ type UserProfile = {
   bio: string;
   ocultarInfo: boolean;
   createdAt: string;
+  is_following?: boolean;
+};
+
+type UserSummary = {
+  id: number;
+  username: string;
+  name: string;
+  avatarUrl: string | null;
 };
 
 type Post = {
@@ -75,14 +84,21 @@ export default function UserProfilePage() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
+  
+  const [followersList, setFollowersList] = useState<UserSummary[]>([]);
+  const [followingList, setFollowingList] = useState<UserSummary[]>([]);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<"followers" | "following">("followers");
 
   useEffect(() => {
     const tokens = localStorage.getItem("ubfitness_tokens");
+    let token = "";
     if (tokens) {
       try {
         const parsed = JSON.parse(tokens);
-        const payload = JSON.parse(atob(parsed.access_token.split(".")[1]));
-        setCurrentUserId(payload.sub);
+        token = parsed.access_token;
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        setCurrentUserId(payload.user_id || payload.sub);
       } catch (e) {
         console.error("Error parsing token:", e);
       }
@@ -95,10 +111,19 @@ export default function UserProfilePage() {
         setLoading(true);
         setError("");
 
-        const userRes = await fetch(`${API_BASE}/api/users/${userId}`);
+        const headers: HeadersInit = {};
+        if (token) {
+            headers["Authorization"] = `Bearer ${token}`;
+        }
+
+        const userRes = await fetch(`${API_BASE}/api/users/${userId}`, { headers });
         if (!userRes.ok) throw new Error("Usuario no encontrado");
         const userData = await userRes.json();
         setUser(userData);
+        
+        if (userData.is_following !== undefined) {
+            setIsFollowing(userData.is_following);
+        }
 
         const postsRes = await fetch(`${API_BASE}/api/users/${userId}/posts`);
         if (!postsRes.ok) throw new Error("Error al cargar publicaciones");
@@ -107,17 +132,14 @@ export default function UserProfilePage() {
 
         const followersRes = await fetch(`${API_BASE}/api/users/${userId}/followers`);
         const followersData = await followersRes.json();
+        setFollowersList(followersData);
         setFollowersCount(followersData.length);
 
         const followingRes = await fetch(`${API_BASE}/api/users/${userId}/following`);
         const followingData = await followingRes.json();
+        setFollowingList(followingData);
         setFollowingCount(followingData.length);
 
-        if (currentUserId) {
-          const myFollowingRes = await fetch(`${API_BASE}/api/users/${currentUserId}/following`);
-          const myFollowingData = await myFollowingRes.json();
-          setIsFollowing(myFollowingData.some((u: { id: number }) => u.id === parseInt(userId)));
-        }
       } catch (err) {
         console.error(err);
         setError(err instanceof Error ? err.message : "Error al cargar el perfil");
@@ -127,24 +149,35 @@ export default function UserProfilePage() {
     };
 
     fetchUserData();
-  }, [userId, currentUserId]);
+  }, [userId]);
 
   const handleFollow = async () => {
-    if (!currentUserId) {
-      alert("Debes iniciar sesión para seguir usuarios");
+    const tokens = localStorage.getItem("ubfitness_tokens");
+    if (!tokens) {
+      router.push("/login");
       return;
     }
+    const parsed = JSON.parse(tokens);
+    const token = parsed.access_token;
 
     try {
       const method = isFollowing ? "DELETE" : "POST";
-      const res = await fetch(`${API_BASE}/api/users/${userId}/follow?me=${currentUserId}`, {
+      const res = await fetch(`${API_BASE}/api/users/${userId}/follow`, {
         method,
+        headers: {
+            "Authorization": `Bearer ${token}`
+        }
       });
 
       if (!res.ok) throw new Error("Error al actualizar seguimiento");
 
-      setIsFollowing(!isFollowing);
-      setFollowersCount((prev) => (isFollowing ? prev - 1 : prev + 1));
+      const data = await res.json();
+      const newIsFollowing = data.is_following;
+      
+      if (newIsFollowing !== isFollowing) {
+          setIsFollowing(newIsFollowing);
+          setFollowersCount((prev) => (newIsFollowing ? prev + 1 : prev - 1));
+      }
     } catch (err) {
       console.error(err);
       alert("Error al actualizar el seguimiento");
@@ -244,18 +277,30 @@ export default function UserProfilePage() {
                   <p className="text-xl font-bold text-gray-800">{posts.length}</p>
                   <p className="text-xs text-gray-500">Posts</p>
                 </div>
-                <div className="text-center">
+                <button 
+                  onClick={() => {
+                    setModalType("followers");
+                    setModalOpen(true);
+                  }}
+                  className="text-center hover:opacity-70 transition-opacity"
+                >
                   <p className="text-xl font-bold text-gray-800">{followersCount}</p>
                   <p className="text-xs text-gray-500">Seguidores</p>
-                </div>
-                <div className="text-center">
+                </button>
+                <button 
+                  onClick={() => {
+                    setModalType("following");
+                    setModalOpen(true);
+                  }}
+                  className="text-center hover:opacity-70 transition-opacity"
+                >
                   <p className="text-xl font-bold text-gray-800">{followingCount}</p>
                   <p className="text-xs text-gray-500">Siguiendo</p>
-                </div>
+                </button>
               </div>
             </div>
 
-            {!isOwnProfile && currentUserId && (
+            {!isOwnProfile && (
               <button
                 onClick={handleFollow}
                 className={`px-6 py-2 rounded-lg font-medium transition-colors ${
@@ -364,6 +409,13 @@ export default function UserProfilePage() {
           )}
         </div>
       </div>
+
+      <UserListModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={modalType === "followers" ? "Seguidores" : "Siguiendo"}
+        users={modalType === "followers" ? followersList : followingList}
+      />
     </main>
   );
 }

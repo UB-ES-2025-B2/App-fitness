@@ -1,9 +1,28 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 
 export default function NutritionButton() {
+  const [isLogged, setIsLogged] = useState(false);
+
+  useEffect(() => {
+    // Comprova tokens en localStorage
+    const raw = localStorage.getItem("ubfitness_tokens");
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (parsed.access_token) setIsLogged(true);
+      } catch {
+        setIsLogged(false);
+      }
+    }
+  }, []);
+
+  // ❌ Si NO està loguejat → no es mostra el botó
+  if (!isLogged) return null;
+
   return (
     <Link
       href="/nutricion"

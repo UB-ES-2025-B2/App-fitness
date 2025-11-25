@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import React from "react";
 import Link from "next/link";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
 // Tipos
 type Event = {
   id: number;
@@ -49,6 +49,8 @@ export default function CommunityPage({ params }: { params: Promise<{ communityI
   const [joining, setJoining] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isMember, setIsMember] = useState(false);
+  const communityButtonRef = useRef<HTMLButtonElement | null>(null);
+
 
 
 const formatDate = (iso: string) => {
@@ -106,6 +108,17 @@ const formatDate = (iso: string) => {
 
     fetchData();
   }, [communityId]);
+
+  useEffect(() => {
+    if (!loading && communityButtonRef.current) {
+      try {
+        communityButtonRef.current.scrollIntoView({ block: "center", behavior: "auto" });
+      } catch {
+        communityButtonRef.current.scrollIntoView();
+      }
+    }
+  }, [loading]);
+
 
   // Funció per apuntar-se o desapuntar-se
   const toggleJoinEvent = async (eventId: number) => {
@@ -171,7 +184,7 @@ const formatDate = (iso: string) => {
   const buttonStyle = { backgroundColor: themeColor };
   
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100">
+    <div className="min-h-screen bg-gray-900 text-gray-100 pt-24">
       {/* Encabezado */}
       <div className="relative h-48 md:h-64" style={headerStyle}>
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black opacity-60"></div>
@@ -195,8 +208,9 @@ const formatDate = (iso: string) => {
               <p className="text-gray-300">{community.description}</p>
 
               <button
+                ref={communityButtonRef}
                 onClick={toggleCommunityMembership}
-                className="mt-4 w-full py-2 px-4 rounded-md text-white font-medium"
+                className="mt-4 w-full py-2 px-4 rounded-md text-white font-medium relative z-[9999]"
                 style={buttonStyle}
               >
                 {isMember ? "Salir de la comunidad" : "Unirse a la comunidad"}

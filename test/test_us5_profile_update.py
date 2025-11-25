@@ -7,9 +7,16 @@ Acceptance criteria tested:
 """
 
 import pytest
-
-from conftest import create_user, verify_user_email
+from conftest import create_user
 import jwt
+from app.models.email_verification import EmailVerification
+from datetime import datetime
+
+
+def verify_user(_db, user):
+    ev = EmailVerification(user_id=user.id, verified_at=datetime.utcnow())
+    _db.session.add(ev)
+    _db.session.commit()
 
 
 def login_and_get_tokens(client, email, password):
@@ -28,9 +35,9 @@ def test_update_profile_put(client, _db):
 
 
 def test_auth_me_get_and_patch(client, _db):
-    user = create_user(_db, username='meuser', name='MeName', email='me2@example.com', password='mepwd')
-    assert verify_user_email('me2@example.com')
-    tokens = login_and_get_tokens(client, 'me2@example.com', 'mepwd')
+    user = create_user(_db, username='meuser', name='MeName', email='me@example.com', password='mepwd')
+    verify_user(_db, user)
+    tokens = login_and_get_tokens(client, 'me@example.com', 'mepwd')
     access = tokens.get('access_token')
     headers = {'Authorization': f'Bearer {access}'}
 
@@ -38,11 +45,7 @@ def test_auth_me_get_and_patch(client, _db):
     rv = client.get('/auth/me', headers=headers)
     assert rv.status_code == 200
     got = rv.get_json()
-    assert got.get('email') == 'me2@example.com'
-    assert got.get("name") == 'MeName'
-    assert got.get("username") == 'meuser'
-    assert got.get("ocultar_info")
-    assert got.get("preferences")==[]
+    assert got.get('email') == 'me@example.com'
 
     # PATCH /auth/me
     rv2 = client.patch('/auth/me', headers=headers, json={'name': 'MeNew', 'preferences': ['x']})

@@ -3,8 +3,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 
 import ProfileAvatar from "../components/ProfileAvatar";
+import UserListModal from "../components/UserListModal";
 
 import { useRouter } from "next/navigation";
 import { authFetch, getTokens, clearTokens } from "../lib/api";
@@ -20,6 +22,13 @@ type ApiUser = {
   bio?: string;
   ocultar_info?: boolean;
   preferences?: Array<"Fútbol" | "Básquet" | "Montaña"> | string[]; // por si back devuelve otros ids
+};
+
+type UserSummary = {
+  id: number;
+  username: string;
+  name: string;
+  avatarUrl: string | null;
 };
 
 async function fetchMe(): Promise<ApiUser | null> {
@@ -47,29 +56,48 @@ async function updateMe(patch: Partial<{
   return res.json(); // { message, user: {...} }
 }
 
-type Post = { id: number; text: string; image?: string; topic: string; date: string };
-type User = { id: string; name: string; username: string };
-type Community = { id: string; name: string; topic: string };
+type BackendPost = {
+  id: number;
+  text: string;
+  topic?: string | null;
+  date?: string | null;
+  created_at?: string | null;
+  image?: string | null;
+  image_url?: string | null;
+  user?: {
+    id: number;
+    username: string;
+    name?: string | null;
+  } | null;
+};
 
-const MY_POSTS: Post[] = [
-  { id: 101, text: "Series de cuestas esta mañana 💪", topic: "Montaña", date: "2025-10-10", image: './images/MontanaCuesta.png' },
-  { id: 102, text: "Partidillo con amigos ⚽️", topic: "Fútbol", date: "2025-10-07", image: './images/pachanga.png' },
-];
+type ApiPost = {
+  id: number;
+  text: string;
+  image?: string | null;
+  topic?: string;
+  date: string;
+};
 
-const MY_FOLLOWERS: User[] = [
-  { id: "u1", name: "LauraFit", username: "laura.fit" },
-  { id: "u2", name: "MaxRunner", username: "max.runner" },
-];
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
 
-const MY_FOLLOWING_USERS: User[] = [
-  { id: "u3", name: "Álex", username: "alex.bcn" },
-  { id: "u4", name: "Sofía", username: "sofi.trail" },
-];
+function normalizeUserPost(p: BackendPost): ApiPost {
+  return {
+    id: p.id,
+    text: p.text,
+    topic: p.topic ?? "General",
+    image: p.image ?? p.image_url ?? undefined,
+    date: p.date ?? p.created_at ?? new Date().toISOString(),
+  };
+}
 
-const MY_FOLLOWING_COMMUNITIES: Community[] = [
-  { id: "pirineos", name: "Pirineos Trail", topic: "Montaña" },
-  { id: "street-hoops", name: "Street Hoops BCN", topic: "Básquet" },
-];
+async function fetchUserPosts(userId: number): Promise<ApiPost[]> {
+  const res = await authFetch(`${API_BASE}/api/users/${userId}/posts`);
+  if (!res.ok) return [];
+  const data: BackendPost[] = await res.json();
+  return data.map(normalizeUserPost);
+}
+
 
 type Profile = {
   nombre: string;
@@ -97,11 +125,107 @@ const INITIAL_PROFILE: Profile = {
   avatarUrl: undefined,
 };
 
+type TopicFilter = "ALL" | "Fútbol" | "Básquet" | "Montaña";
+type DateFilter = "ALL" | "DAY" | "MONTH" | "YEAR";
+type SortOrder = "DESC" | "ASC";
+
+
 export default function ProfilePage() {
   const router = useRouter();
-  const [tab, setTab] = useState<"posts" | "followers" | "following">("posts");
   const [profile, setProfile] = useState<Profile>(INITIAL_PROFILE);
   const [loading, setLoading] = useState(true);
+
+  // Listas de seguidores/seguidos
+  const [followersList, setFollowersList] = useState<UserSummary[]>([]);
+  const [followingList, setFollowingList] = useState<UserSummary[]>([]);
+  
+  // Modal
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<"followers" | "following">("followers");
+
+  const [posts, setPosts] = useState<ApiPost[]>([]);
+  const [postsLoading, setPostsLoading] = useState(true);
+
+  const [topicFilter, setTopicFilter] = useState<TopicFilter>("ALL");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("ALL");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("DESC");
+
+  // Posts filtrados + ordenados
+  const visiblePosts = (() => {
+  if (!posts || posts.length === 0) return [];
+
+  const now = new Date();
+
+  const passesDateFilter = (dateStr: string) => {
+    if (dateFilter === "ALL") return true;
+
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return true;
+
+    if (dateFilter === "DAY") {
+      const oneDayMs = 24 * 60 * 60 * 1000;
+      return now.getTime() - d.getTime() <= oneDayMs;
+    }
+
+    if (dateFilter === "MONTH") {
+      const monthAgo = new Date();
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+      return d >= monthAgo;
+    }
+
+    if (dateFilter === "YEAR") {
+      const yearAgo = new Date();
+      yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+      return d >= yearAgo;
+    }
+
+    return true;
+  };
+
+  return [...posts]
+    .filter((p) => {
+      const topic = p.topic || "";
+      if (topicFilter !== "ALL" && topic !== topicFilter) return false;
+      return passesDateFilter(p.date);
+    })
+    .sort((a, b) => {
+      const da = new Date(a.date).getTime();
+      const db = new Date(b.date).getTime();
+      if (isNaN(da) || isNaN(db)) return 0;
+      return sortOrder === "DESC" ? db - da : da - db;
+    });
+})();
+
+
+  useEffect(() => {
+    // Escuchar nuevos posts creados en cualquier parte (composer)
+    const onNewPost = (e: Event) => {
+      const detail = (e as CustomEvent<{
+        id: number;
+        text: string;
+        topic: string;
+        image?: string;
+      }>).detail;
+
+      // Lo adaptamos a tu ApiPost
+      const apiPost: ApiPost = {
+        id: detail.id,
+        text: detail.text,
+        topic: detail.topic,
+        image: detail.image,
+        // No nos llega la fecha del evento normalizado, usamos "ahora"
+        date: new Date().toISOString(),
+      };
+
+      setPosts((prev) => [apiPost, ...prev]);
+    };
+
+    window.addEventListener("new-post", onNewPost as EventListener);
+    return () => window.removeEventListener("new-post", onNewPost as EventListener);
+  }, []);
+
+
+
 
   useEffect(() => {
     // si no hay tokens -> a /login
@@ -135,9 +259,43 @@ export default function ProfilePage() {
         ocultarInfo: typeof me.ocultar_info === "boolean" ? me.ocultar_info : true,
       });
 
+      // Cargar seguidores, seguidos y posts
+      try {
+        const [followersRes, followingRes] = await Promise.all([
+          authFetch(`/api/users/${me.id}/followers`),
+          authFetch(`/api/users/${me.id}/following`),
+        ]);
+
+        if (followersRes.ok) {
+          const followersData = await followersRes.json();
+          setFollowersList(followersData);
+        }
+        
+        if (followingRes.ok) {
+          const followingData = await followingRes.json();
+          setFollowingList(followingData);
+        }
+
+        // Cargar posts usando la función normalizada
+        setPostsLoading(true);
+        try {
+          const userPosts = await fetchUserPosts(me.id);
+          setPosts(userPosts);
+        } catch (e) {
+          console.error(e);
+          setPosts([]);
+        } finally {
+          setPostsLoading(false);
+        }
+
+      } catch (error) {
+        console.error("Error cargando datos del perfil", error);
+      }
+
       setLoading(false);
     })();
   }, [router]);
+
 
   if (loading) return <p className="p-6">Cargando perfil…</p>;
   
@@ -190,54 +348,91 @@ export default function ProfilePage() {
 
         {/* Stats */}
         <div className="mt-4 grid grid-cols-3 divide-x rounded-lg bg-gray-50">
-          <Stat label="Publicaciones" value={MY_POSTS.length} />
-          <Stat label="Seguidores" value={MY_FOLLOWERS.length} />
-          <Stat label="Seguidos" value={MY_FOLLOWING_USERS.length + MY_FOLLOWING_COMMUNITIES.length} />
-        </div>
-
-        {/* Tabs */}
-        <div className="mt-4 flex gap-2">
-          <TabButton active={tab === "posts"} onClick={() => setTab("posts")}>Publicaciones</TabButton>
-          <TabButton active={tab === "followers"} onClick={() => setTab("followers")}>Seguidores</TabButton>
-          <TabButton active={tab === "following"} onClick={() => setTab("following")}>Seguidos</TabButton>
+          <Stat label="Publicaciones" value={posts.length} />
+          <div 
+            className="cursor-pointer hover:bg-gray-100 transition-colors rounded-lg"
+            onClick={() => {
+              setModalType("followers");
+              setModalOpen(true);
+            }}
+          >
+            <Stat label="Seguidores" value={followersList.length} />
+          </div>
+          <div 
+            className="cursor-pointer hover:bg-gray-100 transition-colors rounded-lg"
+            onClick={() => {
+              setModalType("following");
+              setModalOpen(true);
+            }}
+          >
+            <Stat label="Seguidos" value={followingList.length} />
+          </div>
         </div>
       </section>
 
       {/* Contenido de pestañas */}
       <section>
-        {tab === "posts" && (
-          <div className="space-y-4">
-            {MY_POSTS.map((p) => (
-              <article key={p.id} className="bg-white rounded-2xl shadow-md p-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium">{profile.nombre}</h3>
-                  <span className="text-xs text-gray-500">
-                    {p.topic} · {new Date(p.date).toLocaleDateString()}
-                  </span>
-                </div>
-                <p className="mt-2 text-gray-700">{p.text}</p>
-                {p.image && (
-                  <img src={p.image} alt={p.topic} className="mt-3 rounded-xl w-full h-56 object-cover" />
-                )}
-              </article>
-            ))}
-            {MY_POSTS.length === 0 && (
-              <p className="text-center text-gray-500">Aún no hay publicaciones.</p>
-            )}
-          </div>
-        )}
+        <div className="space-y-4">
+          {!postsLoading && posts.length > 0 && (
+            <PostFilters
+              topicFilter={topicFilter}
+              setTopicFilter={setTopicFilter}
+              dateFilter={dateFilter}
+              setDateFilter={setDateFilter}
+              sortOrder={sortOrder}
+              setSortOrder={setSortOrder}
+            />
+          )}
+          
+          {postsLoading && (
+            <p className="text-center text-gray-500">Cargando publicaciones…</p>
+          )}
 
-        {tab === "followers" && (
-          <ListUsers title="Seguidores" users={MY_FOLLOWERS} emptyText="Aún no tienes seguidores." />
-        )}
+          {!postsLoading && posts.length === 0 && (
+            <p className="text-center text-gray-500">Aún no hay publicaciones.</p>
+          )}
 
-        {tab === "following" && (
-          <div className="space-y-6">
-            <ListUsers title="Usuarios seguidos" users={MY_FOLLOWING_USERS} emptyText="No sigues a nadie." />
-            <ListCommunities title="Comunidades seguidas" communities={MY_FOLLOWING_COMMUNITIES} emptyText="No sigues comunidades." />
-          </div>
-        )}
+          {!postsLoading && visiblePosts.length > 0 && (
+            <>
+              {visiblePosts.map((p) => (
+                <article key={p.id} className="bg-white rounded-2xl shadow-md p-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium">
+                      {profile.nombre || profile.username || "Tú"}
+                    </h3>
+                    <span className="text-xs text-gray-500">
+                      {p.topic ?? "General"} ·{" "}
+                      {new Date(p.date).toLocaleDateString("es-ES", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-gray-700">{p.text}</p>
+                  {p.image && (
+                    <img
+                      src={p.image}
+                      alt={p.topic ?? "Post"}
+                      className="mt-3 rounded-xl w-full h-56 object-cover"
+                    />
+                  )}
+                </article>
+              ))}
+              <p className="text-center text-gray-400 text-sm mt-4">
+                No hay más publicaciones.
+              </p>
+            </>
+          )}
+        </div>
       </section>
+
+      <UserListModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={modalType === "followers" ? "Seguidores" : "Seguidos"}
+        users={modalType === "followers" ? followersList : followingList}
+      />
     </div>
   );
 }
@@ -274,7 +469,7 @@ function SettingsDropdown({
         username: form.username,                    // <-- username
         preferences: form.temas,                    // <-- preferences (array de strings)
         ocultar_info: form.ocultarInfo,             // <-- boolean
-        // avatar_url ya lo guardamos al vuelo arriba; si quisieras guardarlo aquí:
+        // avatar_url ya lo guardamos al vuelo arriba
         // avatar_url: form.avatarUrl || null,
       });
       // Refleja en UI lo guardado
@@ -426,88 +621,115 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function TabButton({
-  active,
-  onClick,
-  children,
+function PostFilters({
+  topicFilter,
+  setTopicFilter,
+  dateFilter,
+  setDateFilter,
+  sortOrder,
+  setSortOrder,
 }: {
-  active?: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
+  topicFilter: TopicFilter;
+  setTopicFilter: (v: TopicFilter) => void;
+  dateFilter: DateFilter;
+  setDateFilter: (v: DateFilter) => void;
+  sortOrder: SortOrder;
+  setSortOrder: (v: SortOrder) => void;
 }) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-3 py-1.5 rounded-full text-sm transition
-      ${active ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
-    >
-      {children}
-    </button>
-  );
-}
+  const topicButtons: { value: TopicFilter; label: string }[] = [
+    { value: "ALL", label: "Todas" },
+    { value: "Fútbol", label: "Fútbol" },
+    { value: "Básquet", label: "Básquet" },
+    { value: "Montaña", label: "Montaña" },
+  ];
 
-function ListUsers({
-  title,
-  users,
-  emptyText,
-}: {
-  title: string;
-  users: { id: string; name: string; username: string }[];
-  emptyText: string;
-}) {
-  if (users.length === 0) return <p className="text-center text-gray-500">{emptyText}</p>;
+  const dateButtons: { value: DateFilter; label: string }[] = [
+    { value: "ALL", label: "Todo" },
+    { value: "DAY", label: "Último día" },
+    { value: "MONTH", label: "Último mes" },
+    { value: "YEAR", label: "Último año" },
+  ];
+
   return (
-    <div className="bg-white rounded-2xl shadow-md">
-      <h4 className="px-4 pt-4 text-sm font-semibold text-gray-700">{title}</h4>
-      <ul className="p-4 space-y-3">
-        {users.map((u) => (
-          <li key={u.id} className="flex items-center justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-700">
-                {u.name[0]}
-              </div>
-              <div className="min-w-0">
-                <div className="text-sm font-medium truncate">{u.name}</div>
-                <div className="text-xs text-gray-500 truncate">@{u.username}</div>
-              </div>
-            </div>
-            <button className="text-xs px-2 py-1 rounded-full bg-gray-100 hover:bg-blue-50 hover:text-blue-700">
-              Ver
+    <div className="bg-white border rounded-2xl shadow-sm px-4 py-3 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+      </div>
+
+      {/* Temáticas */}
+      <div className="flex flex-wrap gap-2">
+        {topicButtons.map((btn) => {
+          const active = topicFilter === btn.value;
+          return (
+            <button
+              key={btn.value}
+              type="button"
+              onClick={() => setTopicFilter(btn.value)}
+              className={
+                "text-xs px-3 py-1.5 rounded-full border transition shadow-sm " +
+                (active
+                  ? "bg-blue-600 text-white border-blue-600 shadow-md scale-[1.02]"
+                  : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100")
+              }
+            >
+              {btn.label}
             </button>
-          </li>
-        ))}
-      </ul>
+          );
+        })}
+      </div>
+
+      {/* Rango de fechas */}
+      <div className="flex flex-wrap gap-2">
+        {dateButtons.map((btn) => {
+          const active = dateFilter === btn.value;
+          return (
+            <button
+              key={btn.value}
+              type="button"
+              onClick={() => setDateFilter(btn.value)}
+              className={
+                "text-xs px-3 py-1.5 rounded-full border transition " +
+                (active
+                  ? "bg-emerald-500 text-white border-emerald-500 shadow-md scale-[1.02]"
+                  : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100")
+              }
+            >
+              {btn.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Orden */}
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs text-gray-500">Ordenar por</span>
+        <div className="inline-flex rounded-full bg-gray-100 p-1">
+          <button
+            type="button"
+            onClick={() => setSortOrder("DESC")}
+            className={
+              "text-[11px] px-3 py-1 rounded-full transition " +
+              (sortOrder === "DESC"
+                ? "bg-white shadow-sm text-gray-900"
+                : "text-gray-500 hover:text-gray-800")
+            }
+          >
+            Más recientes
+          </button>
+          <button
+            type="button"
+            onClick={() => setSortOrder("ASC")}
+            className={
+              "text-[11px] px-3 py-1 rounded-full transition " +
+              (sortOrder === "ASC"
+                ? "bg-white shadow-sm text-gray-900"
+                : "text-gray-500 hover:text-gray-800")
+            }
+          >
+            Más antiguos
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
-function ListCommunities({
-  title,
-  communities,
-  emptyText,
-}: {
-  title: string;
-  communities: { id: string; name: string; topic: string }[];
-  emptyText: string;
-}) {
-  if (communities.length === 0) return <p className="text-center text-gray-500">{emptyText}</p>;
-  return (
-    <div className="bg-white rounded-2xl shadow-md">
-      <h4 className="px-4 pt-4 text-sm font-semibold text-gray-700">{title}</h4>
-      <ul className="p-4 space-y-3">
-        {communities.map((c) => (
-          <li key={c.id} className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-medium">{c.name}</div>
-              <div className="text-xs text-gray-500">{c.topic}</div>
-            </div>
-            <button className="text-xs px-2 py-1 rounded-full bg-gray-100 hover:bg-blue-50 hover:text-blue-700">
-              Ver
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-
-}
