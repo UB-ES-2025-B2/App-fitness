@@ -222,16 +222,20 @@ export default function Feed() {
   // ------------------------------
   return (
     <section className="w-full py-4 fade-in">
-      <div className="mb-4 flex items-center justify-between">
-        <TopicDropdown topic={topic} setTopic={setTopic} topics={TOPICS} />
+        <div className="mb-4 flex items-center justify-between gap-4">
+
+        {/* Temática */}
+        <div>
+          <TopicDropdown topic={topic} setTopic={setTopic} topics={TOPICS} />
+        </div>
+
+        {/* Ordenar */}
+        <div className="flex-1 flex justify-end">
+          <FeedFilters sortOrder={sortOrder} setSortOrder={setSortOrder} />
+        </div>
+
       </div>
 
-      <FeedFilters
-        
-        sortOrder={sortOrder}
-        setSortOrder={setSortOrder}
-      
-      />
 
       <div className="space-y-6 mt-4">
         {visible.map((post) => (
@@ -365,7 +369,7 @@ function TopicDropdown({
 }
 
 /* ---------------------------------------------------------------
-   FEED FILTERS - SOLO ORDEN
+   FEED FILTERS - DROPDOWN MODERN
 ----------------------------------------------------------------*/
 function FeedFilters({
   sortOrder,
@@ -374,33 +378,76 @@ function FeedFilters({
   sortOrder: string;
   setSortOrder: (v: string) => void;
 }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectOrder = (order: "ASC" | "DESC") => {
+    setSortOrder(order);
+    setOpen(false);
+  };
+
   return (
-    <div className="bg-white dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 rounded-xl p-3 shadow-sm flex flex-wrap gap-2">
+    <div className="relative w-full flex justify-end" ref={ref}>
+      <button
+        className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-sm flex items-center gap-2 shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700 transition"
+        onClick={() => setOpen(!open)}
+      >
+        Ordenar:
+        <span className="font-medium text-blue-600 dark:text-blue-400">
+          {sortOrder === "DESC" ? "Más reciente" : "Más antiguo"}
+        </span>
 
-      <div className="flex items-center gap-1 ml-auto">
-        <button
-          onClick={() => setSortOrder("DESC")}
-          className={`px-3 py-1.5 rounded-full text-xs border ${
-            sortOrder === "DESC"
-              ? "bg-blue-600 text-white border-blue-600"
-              : "bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100"
-          }`}
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          className={`transition ${open ? "rotate-180" : ""}`}
         >
-          Más reciente
-        </button>
+          <path
+            d="M6 9l6 6 6-6"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+      </button>
 
-        <button
-          onClick={() => setSortOrder("ASC")}
-          className={`px-3 py-1.5 rounded-full text-xs border ${
-            sortOrder === "ASC"
-              ? "bg-blue-600 text-white border-blue-600"
-              : "bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100"
-          }`}
-        >
-          Más antiguo
-        </button>
-      </div>
+      {open && (
+        <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden z-50">
+          <button
+            onClick={() => selectOrder("DESC")}
+            className={`w-full text-left px-4 py-2 text-sm transition ${
+              sortOrder === "DESC"
+                ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
+                : "hover:bg-gray-100 dark:hover:bg-slate-700"
+            }`}
+          >
+            Más reciente
+          </button>
 
+          <button
+            onClick={() => selectOrder("ASC")}
+            className={`w-full text-left px-4 py-2 text-sm transition ${
+              sortOrder === "ASC"
+                ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
+                : "hover:bg-gray-100 dark:hover:bg-slate-700"
+            }`}
+          >
+            Más antiguo
+          </button>
+        </div>
+      )}
     </div>
   );
 }
