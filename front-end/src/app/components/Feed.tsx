@@ -21,6 +21,9 @@ type BackendPost = {
   image?: string | null;
   date?: string | null;
   user?: { id: number; username: string; name?: string | null } | null;
+  likes?: number;
+  liked?: boolean;
+  likedByMe?: boolean;
 };
 
 const TOPICS: Topic[] = ["Todos", "Fútbol", "Básquet", "Montaña"];
@@ -41,6 +44,8 @@ function normalizePost(p: BackendPost): Post {
     image: p.image ?? undefined,
     user: userName,
     userId,
+    likeCount: p.likes ?? 0,
+    likedByMe: p.likedByMe ?? p.liked ?? false,
   };
 }
 

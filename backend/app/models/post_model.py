@@ -11,17 +11,30 @@ class Post(db.Model):
     text = db.Column(db.Text, nullable=False)
     image_url = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    liked_by = db.relationship(
+        "User",
+        secondary="post_like",
+        back_populates="liked_posts",
+        lazy="dynamic",
+    )
 
-    def to_dict(self):
+    def to_dict(self, current_user_id=None):
         return {
             "id": self.id,
             "text": self.text,
             "topic": self.topic or "",
             "image": self.image_url,
             "date": self.created_at.isoformat() if self.created_at else None,
+            
             "user": {
                 "id": self.author.id,
                 "username": self.author.username,
                 "name": self.author.name,
             },
+            "likes": self.liked_by.count(),
+        "likedByMe": (
+            self.liked_by.filter_by(id=current_user_id).count() > 0
+            if current_user_id else False
+        ),
         }
+    

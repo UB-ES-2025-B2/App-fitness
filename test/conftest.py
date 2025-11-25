@@ -1,6 +1,8 @@
 import os
 import sys
 import pytest
+from app.models.email_verification import EmailVerification
+from datetime import datetime
 
 # Ensure backend package is importable
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -20,12 +22,13 @@ from app.models.post_model import Post
 
 @pytest.fixture(scope='function')
 def app():
-    app = create_app()
-    app.config['TESTING'] = True
-    # Ensure URI is set (redundant but safe)
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-    app.config['SECRET_KEY'] = 'test-secret'
-
+    app = create_app({
+        'SQLALCHEMY_DATABASE_URI': 'sqlite:///:memory:',
+        'TESTING': True,
+        'SECRET_KEY': 'test-secret',
+        'FRONTEND_BASE_URL': 'http://localhost:3000'
+    })
+    
     # Create app context for DB operations
     with app.app_context():
         db.create_all()
@@ -66,3 +69,14 @@ def create_post(_db, user_id, topic='general', text='hello', image_url=None):
     _db.session.add(p)
     _db.session.commit()
     return p
+
+
+def verify_user_email(email):
+    user = User.query.filter_by(email=email).first()
+    if not user:
+        return False
+    ev = EmailVerification(user_id=user.id, verified_at=datetime.utcnow())
+    db.session.add(ev)
+    db.session.commit()
+    return True
+

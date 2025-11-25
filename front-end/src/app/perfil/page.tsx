@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 
 import ProfileAvatar from "../components/ProfileAvatar";
 import UserListModal from "../components/UserListModal";
@@ -55,7 +56,48 @@ async function updateMe(patch: Partial<{
   return res.json(); // { message, user: {...} }
 }
 
-type Post = { id: number; text: string; image?: string; topic: string; date: string };
+type BackendPost = {
+  id: number;
+  text: string;
+  topic?: string | null;
+  date?: string | null;
+  created_at?: string | null;
+  image?: string | null;
+  image_url?: string | null;
+  user?: {
+    id: number;
+    username: string;
+    name?: string | null;
+  } | null;
+};
+
+type ApiPost = {
+  id: number;
+  text: string;
+  image?: string | null;
+  topic?: string;
+  date: string;
+};
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
+
+function normalizeUserPost(p: BackendPost): ApiPost {
+  return {
+    id: p.id,
+    text: p.text,
+    topic: p.topic ?? "General",
+    image: p.image ?? p.image_url ?? undefined,
+    date: p.date ?? p.created_at ?? new Date().toISOString(),
+  };
+}
+
+async function fetchUserPosts(userId: number): Promise<ApiPost[]> {
+  const res = await authFetch(`${API_BASE}/api/users/${userId}/posts`);
+  if (!res.ok) return [];
+  const data: BackendPost[] = await res.json();
+  return data.map(normalizeUserPost);
+}
+
 
 type Profile = {
   nombre: string;
@@ -83,6 +125,11 @@ const INITIAL_PROFILE: Profile = {
   avatarUrl: undefined,
 };
 
+type TopicFilter = "ALL" | "Fútbol" | "Básquet" | "Montaña";
+type DateFilter = "ALL" | "DAY" | "MONTH" | "YEAR";
+type SortOrder = "DESC" | "ASC";
+
+
 export default function ProfilePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile>(INITIAL_PROFILE);
@@ -91,11 +138,94 @@ export default function ProfilePage() {
   // Listas de seguidores/seguidos
   const [followersList, setFollowersList] = useState<UserSummary[]>([]);
   const [followingList, setFollowingList] = useState<UserSummary[]>([]);
-  const [posts, setPosts] = useState<Post[]>([]);
   
   // Modal
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState<"followers" | "following">("followers");
+
+  const [posts, setPosts] = useState<ApiPost[]>([]);
+  const [postsLoading, setPostsLoading] = useState(true);
+
+  const [topicFilter, setTopicFilter] = useState<TopicFilter>("ALL");
+  const [dateFilter, setDateFilter] = useState<DateFilter>("ALL");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("DESC");
+
+  // Posts filtrados + ordenados
+  const visiblePosts = (() => {
+  if (!posts || posts.length === 0) return [];
+
+  const now = new Date();
+
+  const passesDateFilter = (dateStr: string) => {
+    if (dateFilter === "ALL") return true;
+
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return true;
+
+    if (dateFilter === "DAY") {
+      const oneDayMs = 24 * 60 * 60 * 1000;
+      return now.getTime() - d.getTime() <= oneDayMs;
+    }
+
+    if (dateFilter === "MONTH") {
+      const monthAgo = new Date();
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+      return d >= monthAgo;
+    }
+
+    if (dateFilter === "YEAR") {
+      const yearAgo = new Date();
+      yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+      return d >= yearAgo;
+    }
+
+    return true;
+  };
+
+  return [...posts]
+    .filter((p) => {
+      const topic = p.topic || "";
+      if (topicFilter !== "ALL" && topic !== topicFilter) return false;
+      return passesDateFilter(p.date);
+    })
+    .sort((a, b) => {
+      const da = new Date(a.date).getTime();
+      const db = new Date(b.date).getTime();
+      if (isNaN(da) || isNaN(db)) return 0;
+      return sortOrder === "DESC" ? db - da : da - db;
+    });
+})();
+
+
+  useEffect(() => {
+    // Escuchar nuevos posts creados en cualquier parte (composer)
+    const onNewPost = (e: Event) => {
+      const detail = (e as CustomEvent<{
+        id: number;
+        text: string;
+        topic: string;
+        image?: string;
+      }>).detail;
+
+      // Lo adaptamos a tu ApiPost
+      const apiPost: ApiPost = {
+        id: detail.id,
+        text: detail.text,
+        topic: detail.topic,
+        image: detail.image,
+        // No nos llega la fecha del evento normalizado, usamos "ahora"
+        date: new Date().toISOString(),
+      };
+
+      setPosts((prev) => [apiPost, ...prev]);
+    };
+
+    window.addEventListener("new-post", onNewPost as EventListener);
+    return () => window.removeEventListener("new-post", onNewPost as EventListener);
+  }, []);
+
+
+
 
   useEffect(() => {
     // si no hay tokens -> a /login
@@ -131,10 +261,9 @@ export default function ProfilePage() {
 
       // Cargar seguidores, seguidos y posts
       try {
-        const [followersRes, followingRes, postsRes] = await Promise.all([
+        const [followersRes, followingRes] = await Promise.all([
           authFetch(`/api/users/${me.id}/followers`),
           authFetch(`/api/users/${me.id}/following`),
-          authFetch(`/api/users/${me.id}/posts`)
         ]);
 
         if (followersRes.ok) {
@@ -147,18 +276,18 @@ export default function ProfilePage() {
           setFollowingList(followingData);
         }
 
-        if (postsRes.ok) {
-          const postsData = await postsRes.json();
-          // Map backend post format to frontend Post type if needed
-          // Backend returns: { id, text, topic, image, date }
-          // Frontend expects: { id, text, image?, topic, date }
-          // It matches mostly, just need to ensure image is handled
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          setPosts(postsData.map((p: any) => ({
-            ...p,
-            image: p.image || undefined
-          })));
+        // Cargar posts usando la función normalizada
+        setPostsLoading(true);
+        try {
+          const userPosts = await fetchUserPosts(me.id);
+          setPosts(userPosts);
+        } catch (e) {
+          console.error(e);
+          setPosts([]);
+        } finally {
+          setPostsLoading(false);
         }
+
       } catch (error) {
         console.error("Error cargando datos del perfil", error);
       }
@@ -166,6 +295,7 @@ export default function ProfilePage() {
       setLoading(false);
     })();
   }, [router]);
+
 
   if (loading) return <p className="p-6">Cargando perfil…</p>;
   
@@ -243,22 +373,56 @@ export default function ProfilePage() {
       {/* Contenido de pestañas */}
       <section>
         <div className="space-y-4">
-          {posts.map((p) => (
-            <article key={p.id} className="bg-white rounded-2xl shadow-md p-4">
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium">{profile.nombre}</h3>
-                <span className="text-xs text-gray-500">
-                  {p.topic} · {new Date(p.date).toLocaleDateString()}
-                </span>
-              </div>
-              <p className="mt-2 text-gray-700">{p.text}</p>
-              {p.image && (
-                <img src={p.image} alt={p.topic} className="mt-3 rounded-xl w-full h-56 object-cover" />
-              )}
-            </article>
-          ))}
-          {posts.length === 0 && (
+          {!postsLoading && posts.length > 0 && (
+            <PostFilters
+              topicFilter={topicFilter}
+              setTopicFilter={setTopicFilter}
+              dateFilter={dateFilter}
+              setDateFilter={setDateFilter}
+              sortOrder={sortOrder}
+              setSortOrder={setSortOrder}
+            />
+          )}
+          
+          {postsLoading && (
+            <p className="text-center text-gray-500">Cargando publicaciones…</p>
+          )}
+
+          {!postsLoading && posts.length === 0 && (
             <p className="text-center text-gray-500">Aún no hay publicaciones.</p>
+          )}
+
+          {!postsLoading && visiblePosts.length > 0 && (
+            <>
+              {visiblePosts.map((p) => (
+                <article key={p.id} className="bg-white rounded-2xl shadow-md p-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium">
+                      {profile.nombre || profile.username || "Tú"}
+                    </h3>
+                    <span className="text-xs text-gray-500">
+                      {p.topic ?? "General"} ·{" "}
+                      {new Date(p.date).toLocaleDateString("es-ES", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-gray-700">{p.text}</p>
+                  {p.image && (
+                    <img
+                      src={p.image}
+                      alt={p.topic ?? "Post"}
+                      className="mt-3 rounded-xl w-full h-56 object-cover"
+                    />
+                  )}
+                </article>
+              ))}
+              <p className="text-center text-gray-400 text-sm mt-4">
+                No hay más publicaciones.
+              </p>
+            </>
           )}
         </div>
       </section>
@@ -305,7 +469,7 @@ function SettingsDropdown({
         username: form.username,                    // <-- username
         preferences: form.temas,                    // <-- preferences (array de strings)
         ocultar_info: form.ocultarInfo,             // <-- boolean
-        // avatar_url ya lo guardamos al vuelo arriba; si quisieras guardarlo aquí:
+        // avatar_url ya lo guardamos al vuelo arriba
         // avatar_url: form.avatarUrl || null,
       });
       // Refleja en UI lo guardado
@@ -453,6 +617,118 @@ function Stat({ label, value }: { label: string; value: number }) {
     <div className="p-3 text-center">
       <div className="text-lg font-semibold">{value}</div>
       <div className="text-xs text-gray-500">{label}</div>
+    </div>
+  );
+}
+
+function PostFilters({
+  topicFilter,
+  setTopicFilter,
+  dateFilter,
+  setDateFilter,
+  sortOrder,
+  setSortOrder,
+}: {
+  topicFilter: TopicFilter;
+  setTopicFilter: (v: TopicFilter) => void;
+  dateFilter: DateFilter;
+  setDateFilter: (v: DateFilter) => void;
+  sortOrder: SortOrder;
+  setSortOrder: (v: SortOrder) => void;
+}) {
+  const topicButtons: { value: TopicFilter; label: string }[] = [
+    { value: "ALL", label: "Todas" },
+    { value: "Fútbol", label: "Fútbol" },
+    { value: "Básquet", label: "Básquet" },
+    { value: "Montaña", label: "Montaña" },
+  ];
+
+  const dateButtons: { value: DateFilter; label: string }[] = [
+    { value: "ALL", label: "Todo" },
+    { value: "DAY", label: "Último día" },
+    { value: "MONTH", label: "Último mes" },
+    { value: "YEAR", label: "Último año" },
+  ];
+
+  return (
+    <div className="bg-white border rounded-2xl shadow-sm px-4 py-3 space-y-3">
+      <div className="flex items-center justify-between gap-2">
+      </div>
+
+      {/* Temáticas */}
+      <div className="flex flex-wrap gap-2">
+        {topicButtons.map((btn) => {
+          const active = topicFilter === btn.value;
+          return (
+            <button
+              key={btn.value}
+              type="button"
+              onClick={() => setTopicFilter(btn.value)}
+              className={
+                "text-xs px-3 py-1.5 rounded-full border transition shadow-sm " +
+                (active
+                  ? "bg-blue-600 text-white border-blue-600 shadow-md scale-[1.02]"
+                  : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100")
+              }
+            >
+              {btn.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Rango de fechas */}
+      <div className="flex flex-wrap gap-2">
+        {dateButtons.map((btn) => {
+          const active = dateFilter === btn.value;
+          return (
+            <button
+              key={btn.value}
+              type="button"
+              onClick={() => setDateFilter(btn.value)}
+              className={
+                "text-xs px-3 py-1.5 rounded-full border transition " +
+                (active
+                  ? "bg-emerald-500 text-white border-emerald-500 shadow-md scale-[1.02]"
+                  : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100")
+              }
+            >
+              {btn.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Orden */}
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-xs text-gray-500">Ordenar por</span>
+        <div className="inline-flex rounded-full bg-gray-100 p-1">
+          <button
+            type="button"
+            onClick={() => setSortOrder("DESC")}
+            className={
+              "text-[11px] px-3 py-1 rounded-full transition " +
+              (sortOrder === "DESC"
+                ? "bg-white shadow-sm text-gray-900"
+                : "text-gray-500 hover:text-gray-800")
+            }
+          >
+            Más recientes
+          </button>
+          <button
+            type="button"
+            onClick={() => setSortOrder("ASC")}
+            className={
+              "text-[11px] px-3 py-1 rounded-full transition " +
+              (sortOrder === "ASC"
+                ? "bg-white shadow-sm text-gray-900"
+                : "text-gray-500 hover:text-gray-800")
+            }
+          >
+            Más antiguos
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

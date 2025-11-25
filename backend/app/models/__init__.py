@@ -12,8 +12,9 @@ follow = db.Table(
 
 from .user_model import User 
 from .post_model import Post 
+from .post_like_model import PostLike
 from .email_verification import EmailVerification
 from .comunity_model import Community
 from .event_model import Event
 
-__all__ = ["User", "Post", "follow", "EmailVerification"]
+__all__ = ["User", "Post", "PostLike", "follow", "EmailVerification"]
