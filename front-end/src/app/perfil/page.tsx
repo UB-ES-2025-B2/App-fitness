@@ -56,12 +56,6 @@ async function updateMe(patch: Partial<{
 }
 
 type Post = { id: number; text: string; image?: string; topic: string; date: string };
-type Community = { id: string; name: string; topic: string };
-
-const MY_FOLLOWING_COMMUNITIES: Community[] = [
-  { id: "pirineos", name: "Pirineos Trail", topic: "Montaña" },
-  { id: "street-hoops", name: "Street Hoops BCN", topic: "Básquet" },
-];
 
 type Profile = {
   nombre: string;
@@ -91,7 +85,6 @@ const INITIAL_PROFILE: Profile = {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [tab, setTab] = useState<"posts" | "followers" | "following">("posts");
   const [profile, setProfile] = useState<Profile>(INITIAL_PROFILE);
   const [loading, setLoading] = useState(true);
 
@@ -242,60 +235,32 @@ export default function ProfilePage() {
               setModalOpen(true);
             }}
           >
-            <Stat label="Seguidos" value={followingList.length + MY_FOLLOWING_COMMUNITIES.length} />
+            <Stat label="Seguidos" value={followingList.length} />
           </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="mt-4 flex gap-2">
-          <TabButton active={tab === "posts"} onClick={() => setTab("posts")}>Publicaciones</TabButton>
-          <TabButton active={tab === "followers"} onClick={() => setTab("followers")}>Seguidores</TabButton>
-          <TabButton active={tab === "following"} onClick={() => setTab("following")}>Seguidos</TabButton>
         </div>
       </section>
 
       {/* Contenido de pestañas */}
       <section>
-        {tab === "posts" && (
-          <div className="space-y-4">
-            {posts.map((p) => (
-              <article key={p.id} className="bg-white rounded-2xl shadow-md p-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-medium">{profile.nombre}</h3>
-                  <span className="text-xs text-gray-500">
-                    {p.topic} · {new Date(p.date).toLocaleDateString()}
-                  </span>
-                </div>
-                <p className="mt-2 text-gray-700">{p.text}</p>
-                {p.image && (
-                  <img src={p.image} alt={p.topic} className="mt-3 rounded-xl w-full h-56 object-cover" />
-                )}
-              </article>
-            ))}
-            {posts.length === 0 && (
-              <p className="text-center text-gray-500">Aún no hay publicaciones.</p>
-            )}
-          </div>
-        )}
-
-        {tab === "followers" && (
-          <ListUsers 
-            title="Seguidores" 
-            users={followersList.map(u => ({ id: String(u.id), name: u.name, username: u.username }))} 
-            emptyText="Aún no tienes seguidores." 
-          />
-        )}
-
-        {tab === "following" && (
-          <div className="space-y-6">
-            <ListUsers 
-              title="Usuarios seguidos" 
-              users={followingList.map(u => ({ id: String(u.id), name: u.name, username: u.username }))} 
-              emptyText="No sigues a nadie." 
-            />
-            <ListCommunities title="Comunidades seguidas" communities={MY_FOLLOWING_COMMUNITIES} emptyText="No sigues comunidades." />
-          </div>
-        )}
+        <div className="space-y-4">
+          {posts.map((p) => (
+            <article key={p.id} className="bg-white rounded-2xl shadow-md p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="font-medium">{profile.nombre}</h3>
+                <span className="text-xs text-gray-500">
+                  {p.topic} · {new Date(p.date).toLocaleDateString()}
+                </span>
+              </div>
+              <p className="mt-2 text-gray-700">{p.text}</p>
+              {p.image && (
+                <img src={p.image} alt={p.topic} className="mt-3 rounded-xl w-full h-56 object-cover" />
+              )}
+            </article>
+          ))}
+          {posts.length === 0 && (
+            <p className="text-center text-gray-500">Aún no hay publicaciones.</p>
+          )}
+        </div>
       </section>
 
       <UserListModal
@@ -492,88 +457,3 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active?: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-3 py-1.5 rounded-full text-sm transition
-      ${active ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function ListUsers({
-  title,
-  users,
-  emptyText,
-}: {
-  title: string;
-  users: { id: string; name: string; username: string }[];
-  emptyText: string;
-}) {
-  if (users.length === 0) return <p className="text-center text-gray-500">{emptyText}</p>;
-  return (
-    <div className="bg-white rounded-2xl shadow-md">
-      <h4 className="px-4 pt-4 text-sm font-semibold text-gray-700">{title}</h4>
-      <ul className="p-4 space-y-3">
-        {users.map((u) => (
-          <li key={u.id} className="flex items-center justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-700">
-                {u.name[0]}
-              </div>
-              <div className="min-w-0">
-                <div className="text-sm font-medium truncate">{u.name}</div>
-                <div className="text-xs text-gray-500 truncate">@{u.username}</div>
-              </div>
-            </div>
-            <button className="text-xs px-2 py-1 rounded-full bg-gray-100 hover:bg-blue-50 hover:text-blue-700">
-              Ver
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function ListCommunities({
-  title,
-  communities,
-  emptyText,
-}: {
-  title: string;
-  communities: { id: string; name: string; topic: string }[];
-  emptyText: string;
-}) {
-  if (communities.length === 0) return <p className="text-center text-gray-500">{emptyText}</p>;
-  return (
-    <div className="bg-white rounded-2xl shadow-md">
-      <h4 className="px-4 pt-4 text-sm font-semibold text-gray-700">{title}</h4>
-      <ul className="p-4 space-y-3">
-        {communities.map((c) => (
-          <li key={c.id} className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-medium">{c.name}</div>
-              <div className="text-xs text-gray-500">{c.topic}</div>
-            </div>
-            <button className="text-xs px-2 py-1 rounded-full bg-gray-100 hover:bg-blue-50 hover:text-blue-700">
-              Ver
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-
-}
