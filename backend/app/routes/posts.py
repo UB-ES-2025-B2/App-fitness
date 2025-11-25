@@ -9,12 +9,13 @@ bp = Blueprint("posts", __name__, url_prefix="/api/posts")
 
 
 @bp.get("/")
-def list_posts():
+@token_required
+def list_posts(current_user):
     posts = Post.query.order_by(Post.created_at.desc()).all()
     payload = []
     for p in posts:
-        d = p.to_dict() 
-        d["likes"] = p.liked_by.count()
+        d = p.to_dict(current_user_id=current_user.id) 
+        #d["likes"] = p.liked_by.count()
         payload.append(d)
     return jsonify(payload)
 
