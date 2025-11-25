@@ -196,7 +196,7 @@ const formatDate = (iso: string) => {
 
               <button
                 onClick={toggleCommunityMembership}
-                className="mt-4 w-full py-2 px-4 rounded-md text-white font-medium"
+                className="mt-4 w-full py-2 px-4 rounded-md text-white font-medium relative z-[9999]"
                 style={buttonStyle}
               >
                 {isMember ? "Salir de la comunidad" : "Unirse a la comunidad"}
