@@ -15,7 +15,6 @@ type NewPostPayload = {
   text: string;
   image?: string;
 };
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 
 export default function AddPostButton() {
   const [open, setOpen] = useState(false);

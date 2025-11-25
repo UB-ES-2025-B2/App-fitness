@@ -3,3 +3,10 @@ venv/
 __pycache__/
 # Dependencias
 node_modules/
+
+# Local env files
+.env.local
+*.env.local
+
+# SQL dumps and session files
+*.sql

@@ -2,24 +2,26 @@ import time
 import sys
 import requests
 
-def wait_until_ready(url, timeout=300):
-    print(f"Esperando a que {url} responda 200...")
+def wait_until_ready(url, timeout=900):
+    print(f"Esperando a que {url} responda 200 (Timeout: {timeout}s)...")
 
     start = time.time()
 
     while time.time() - start < timeout:
         try:
-            r = requests.get(url, timeout=5)
+            r = requests.get(url, timeout=10)
             if r.status_code == 200:
-                print("✅ Deploy activo y respondiendo correctamente")
+                print(f"✅ Deploy activo y respondiendo correctamente: {url}")
                 return
-        except:
+        except Exception as e:
+            # print(f"Error conectando a {url}: {e}")
             pass
 
-        print("Aún no está listo... reintentando en 5s")
-        time.sleep(5)
+        elapsed = int(time.time() - start)
+        print(f"[{elapsed}s/{timeout}s] Aún no está listo {url}... reintentando en 10s")
+        time.sleep(10)
 
-    raise TimeoutError("❗ El deploy no se activó dentro del tiempo esperado.")
+    raise TimeoutError(f"❗ El deploy {url} no se activó dentro del tiempo esperado ({timeout}s).")
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

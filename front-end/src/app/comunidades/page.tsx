@@ -20,7 +20,7 @@ export default function CommunitiesPage() {
 
   useEffect(() => {
     const fetchCommunities = async () => {
-      const baseUrl = process.env.NEXT_PUBLIC_API_BASE;
+      const baseUrl = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
       try {
         const res = await fetch(`${baseUrl}/api/communities/`);
         if (!res.ok) throw new Error("Error al cargar las comunidades");

@@ -8,7 +8,6 @@ import { motion } from "framer-motion";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 const TOPICS: Topic[] = ["Todos", "Fútbol", "Básquet", "Montaña"];
 
-
 type Post = {
   id: number;
   user: string;
@@ -36,6 +35,7 @@ type BackendPost = {
 };
 
 function normalizePost(p: BackendPost): Post {
+  // Pot venir com string o com objecte
   const userName =
     typeof p.user === "string"
       ? p.user
@@ -78,25 +78,7 @@ export default function Feed() {
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const raw = localStorage.getItem("ubfitness_tokens");
-        let accessToken: string | null = null;
-
-        if (raw) {
-          try {
-            const parsed = JSON.parse(raw);
-            accessToken = parsed.access_token;
-          } catch (e) {
-            console.error("Invalid ubfitness_tokens in localStorage", e);
-          }
-        }
-
-        const res = await fetch(`${API_BASE}/api/posts/`, {
-          headers: {
-            "Content-Type": "application/json",
-            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-          },
-        });
-
+        const res = await fetch(`${API_BASE}/api/posts/`);
         if (!res.ok) throw new Error("Error cargando posts");
         const data: BackendPost[] = await res.json();
         setPosts(data.map(normalizePost));
@@ -244,7 +226,7 @@ export default function Feed() {
           >
             <div className="flex items-center justify-between mb-2">
               {post.userId ? (
-                <Link
+                <Link 
                   href={`/usuario/${post.userId}`}
                   className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
                 >

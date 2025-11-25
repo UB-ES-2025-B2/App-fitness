@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import ProfileAvatar from "../components/ProfileAvatar";
+import UserListModal from "../components/UserListModal";
 
 import { useRouter } from "next/navigation";
 import { authFetch, getTokens, clearTokens } from "../lib/api";
@@ -21,6 +22,13 @@ type ApiUser = {
   bio?: string;
   ocultar_info?: boolean;
   preferences?: Array<"Fútbol" | "Básquet" | "Montaña"> | string[]; // por si back devuelve otros ids
+};
+
+type UserSummary = {
+  id: number;
+  username: string;
+  name: string;
+  avatarUrl: string | null;
 };
 
 async function fetchMe(): Promise<ApiUser | null> {
@@ -45,8 +53,9 @@ async function updateMe(patch: Partial<{
     const text = await res.text();
     throw new Error(text || "No se pudo guardar el perfil");
   }
-  return res.json();
+  return res.json(); // { message, user: {...} }
 }
+
 type BackendPost = {
   id: number;
   text: string;
@@ -61,38 +70,6 @@ type BackendPost = {
     name?: string | null;
   } | null;
 };
-async function fetchMyLikedPosts(): Promise<Post[]> {
-  const res = await authFetch("/api/posts/me/likes");
-  if (!res.ok) {
-    console.error("No se pudieron cargar los posts con like");
-    return [];
-  }
-
-  const data: BackendPost[] = await res.json();
-
-  return data.map((p) => ({
-    id: p.id,
-    text: p.text,
-    topic: p.topic ?? "General",
-    date: p.date ?? p.created_at ?? "",
-    image: p.image ?? p.image_url ?? undefined,
-    user: p.user ?? undefined,
-  }));
-}
-
-type Post = { id: number; text: string; image?: string; topic: string; date: string; user?: {
-      id: number;
-      username: string;
-      name?: string | null;
-    } | null;
- };
-type User = { id: string; name: string; username: string };
-type Community = { id: string; name: string; topic: string };
-
-const MY_POSTS: Post[] = [
-  { id: 101, text: "Series de cuestas esta mañana 💪", topic: "Montaña", date: "2025-10-10", image: './images/MontanaCuesta.png' },
-  { id: 102, text: "Partidillo con amigos ⚽️", topic: "Fútbol", date: "2025-10-07", image: './images/pachanga.png' },
-];
 
 type ApiPost = {
   id: number;
@@ -102,50 +79,25 @@ type ApiPost = {
   date: string;
 };
 
-
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
 
-type BackendUserPost = {
-  id: number;
-  text: string;
-  topic?: string | null;
-  image?: string | null;
-  date?: string | null; // lo que devuelve tu to_dict()
-};
-
-function normalizeUserPost(p: BackendUserPost): ApiPost {
+function normalizeUserPost(p: BackendPost): ApiPost {
   return {
     id: p.id,
     text: p.text,
     topic: p.topic ?? "General",
-    image: p.image ?? undefined,
-    date: p.date ?? new Date().toISOString(), // fallback por si viene null
+    image: p.image ?? p.image_url ?? undefined,
+    date: p.date ?? p.created_at ?? new Date().toISOString(),
   };
 }
-
 
 async function fetchUserPosts(userId: number): Promise<ApiPost[]> {
   const res = await authFetch(`${API_BASE}/api/users/${userId}/posts`);
   if (!res.ok) return [];
-  const data: BackendUserPost[] = await res.json();
+  const data: BackendPost[] = await res.json();
   return data.map(normalizeUserPost);
 }
 
-
-const MY_FOLLOWERS: User[] = [
-  { id: "u1", name: "LauraFit", username: "laura.fit" },
-  { id: "u2", name: "MaxRunner", username: "max.runner" },
-];
-
-const MY_FOLLOWING_USERS: User[] = [
-  { id: "u3", name: "Álex", username: "alex.bcn" },
-  { id: "u4", name: "Sofía", username: "sofi.trail" },
-];
-
-const MY_FOLLOWING_COMMUNITIES: Community[] = [
-  { id: "pirineos", name: "Pirineos Trail", topic: "Montaña" },
-  { id: "street-hoops", name: "Street Hoops BCN", topic: "Básquet" },
-];
 
 type Profile = {
   nombre: string;
@@ -180,39 +132,19 @@ type SortOrder = "DESC" | "ASC";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [tab, setTab] = useState<"posts" | "followers" | "following" | "likes">("posts");
   const [profile, setProfile] = useState<Profile>(INITIAL_PROFILE);
   const [loading, setLoading] = useState(true);
-  const [likedPosts, setLikedPosts] = useState<Post[]>([]);
 
-  const handleUnlikeFromProfile = async (postId: number) => {
-    try {
-      // Llamamos al backend para quitar el like
-      const res = await authFetch(`/api/posts/${postId}/like`, {
-        method: "DELETE",
-      });
-
-      if (!res.ok) {
-        const text = await res.text();
-        console.error("Error al quitar me gusta:", res.status, text);
-        alert("No se pudo quitar el me gusta."); 
-        return;
-      }
-
-      // Si salió bien, lo quitamos de la lista local
-      setLikedPosts((prev) => prev.filter((p) => p.id !== postId));
-    } catch (err) {
-      console.error("Error al quitar me gusta:", err);
-      alert("Error al quitar el me gusta.");
-    }
-  };
+  // Listas de seguidores/seguidos
+  const [followersList, setFollowersList] = useState<UserSummary[]>([]);
+  const [followingList, setFollowingList] = useState<UserSummary[]>([]);
+  
+  // Modal
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<"followers" | "following">("followers");
 
   const [posts, setPosts] = useState<ApiPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(true);
-
-  type TopicFilter = "ALL" | "Fútbol" | "Básquet" | "Montaña";
-  type DateFilter = "ALL" | "DAY" | "MONTH" | "YEAR";
-  type SortOrder = "DESC" | "ASC";
 
   const [topicFilter, setTopicFilter] = useState<TopicFilter>("ALL");
   const [dateFilter, setDateFilter] = useState<DateFilter>("ALL");
@@ -264,6 +196,7 @@ export default function ProfilePage() {
     });
 })();
 
+
   useEffect(() => {
     // Escuchar nuevos posts creados en cualquier parte (composer)
     const onNewPost = (e: Event) => {
@@ -295,6 +228,7 @@ export default function ProfilePage() {
 
 
   useEffect(() => {
+    // si no hay tokens -> a /login
     if (!getTokens()) {
       router.replace("/login");
       return;
@@ -307,9 +241,10 @@ export default function ProfilePage() {
         return;
       }
 
+      // Mapea lo que venga del back a tu shape local
       setProfile({
         nombre: me.name ?? "",
-        apellido1: "",         
+        apellido1: "",           // aún no viene del back
         apellido2: "",
         username: me.username ?? "",
         fechaNacimiento: "",
@@ -323,10 +258,25 @@ export default function ProfilePage() {
           : [],
         ocultarInfo: typeof me.ocultar_info === "boolean" ? me.ocultar_info : true,
       });
-      const liked = await fetchMyLikedPosts();
-      setLikedPosts(liked);
 
-      if (me.id) {
+      // Cargar seguidores, seguidos y posts
+      try {
+        const [followersRes, followingRes] = await Promise.all([
+          authFetch(`/api/users/${me.id}/followers`),
+          authFetch(`/api/users/${me.id}/following`),
+        ]);
+
+        if (followersRes.ok) {
+          const followersData = await followersRes.json();
+          setFollowersList(followersData);
+        }
+        
+        if (followingRes.ok) {
+          const followingData = await followingRes.json();
+          setFollowingList(followingData);
+        }
+
+        // Cargar posts usando la función normalizada
         setPostsLoading(true);
         try {
           const userPosts = await fetchUserPosts(me.id);
@@ -337,14 +287,15 @@ export default function ProfilePage() {
         } finally {
           setPostsLoading(false);
         }
-      } else {
-        setPosts([]);
-        setPostsLoading(false);
+
+      } catch (error) {
+        console.error("Error cargando datos del perfil", error);
       }
 
       setLoading(false);
     })();
   }, [router]);
+
 
   if (loading) return <p className="p-6">Cargando perfil…</p>;
   
@@ -396,47 +347,52 @@ export default function ProfilePage() {
         </div>
 
         {/* Stats */}
-        <div className="mt-4 grid grid-cols-4 divide-x rounded-lg bg-gray-50">
-          <Stat label="Publicaciones" value={MY_POSTS.length} />
-          <Stat label="Seguidores" value={MY_FOLLOWERS.length} />
-          <Stat label="Seguidos" value={MY_FOLLOWING_USERS.length + MY_FOLLOWING_COMMUNITIES.length} />
-          <Stat label="Me gusta" value={likedPosts.length} />
-        </div>
-
-        {/* Tabs */}
-        <div className="mt-4 flex gap-2">
-          <TabButton active={tab === "posts"} onClick={() => setTab("posts")}>Publicaciones</TabButton>
-          <TabButton active={tab === "followers"} onClick={() => setTab("followers")}>Seguidores</TabButton>
-          <TabButton active={tab === "following"} onClick={() => setTab("following")}>Seguidos</TabButton>
-          <TabButton active={tab === "likes"} onClick={() => setTab("likes")}>Me gusta</TabButton>
-
+        <div className="mt-4 grid grid-cols-3 divide-x rounded-lg bg-gray-50">
+          <Stat label="Publicaciones" value={posts.length} />
+          <div 
+            className="cursor-pointer hover:bg-gray-100 transition-colors rounded-lg"
+            onClick={() => {
+              setModalType("followers");
+              setModalOpen(true);
+            }}
+          >
+            <Stat label="Seguidores" value={followersList.length} />
+          </div>
+          <div 
+            className="cursor-pointer hover:bg-gray-100 transition-colors rounded-lg"
+            onClick={() => {
+              setModalType("following");
+              setModalOpen(true);
+            }}
+          >
+            <Stat label="Seguidos" value={followingList.length} />
+          </div>
         </div>
       </section>
 
       {/* Contenido de pestañas */}
       <section>
-      
-        {tab === "posts" && (
-          <div className="space-y-4">
-            {!postsLoading && posts.length > 0 && (
-              <PostFilters
-                topicFilter={topicFilter}
-                setTopicFilter={setTopicFilter}
-                dateFilter={dateFilter}
-                setDateFilter={setDateFilter}
-                sortOrder={sortOrder}
-                setSortOrder={setSortOrder}
-              />
-            )}
-            {postsLoading && (
-              <p className="text-center text-gray-500">Cargando publicaciones…</p>
-            )}
+        <div className="space-y-4">
+          {!postsLoading && posts.length > 0 && (
+            <PostFilters
+              topicFilter={topicFilter}
+              setTopicFilter={setTopicFilter}
+              dateFilter={dateFilter}
+              setDateFilter={setDateFilter}
+              sortOrder={sortOrder}
+              setSortOrder={setSortOrder}
+            />
+          )}
+          
+          {postsLoading && (
+            <p className="text-center text-gray-500">Cargando publicaciones…</p>
+          )}
 
-            {!postsLoading && posts.length === 0 && (
-              <p className="text-center text-gray-500">Aún no hay publicaciones.</p>
-            )}
+          {!postsLoading && posts.length === 0 && (
+            <p className="text-center text-gray-500">Aún no hay publicaciones.</p>
+          )}
 
-            {!postsLoading && visiblePosts.length > 0 && (
+          {!postsLoading && visiblePosts.length > 0 && (
             <>
               {visiblePosts.map((p) => (
                 <article key={p.id} className="bg-white rounded-2xl shadow-md p-4">
@@ -463,78 +419,20 @@ export default function ProfilePage() {
                   )}
                 </article>
               ))}
-
               <p className="text-center text-gray-400 text-sm mt-4">
                 No hay más publicaciones.
               </p>
             </>
           )}
-
-          </div>
-        )}
-
-
-        {tab === "followers" && (
-          <ListUsers title="Seguidores" users={MY_FOLLOWERS} emptyText="Aún no tienes seguidores." />
-        )}
-
-        {tab === "following" && (
-          <div className="space-y-6">
-            <ListUsers title="Usuarios seguidos" users={MY_FOLLOWING_USERS} emptyText="No sigues a nadie." />
-            <ListCommunities title="Comunidades seguidas" communities={MY_FOLLOWING_COMMUNITIES} emptyText="No sigues comunidades." />
-          </div>
-        )}
-         {tab === "likes" && (
-    <div className="space-y-4">
-      {likedPosts.map((p) => (
-        <article key={p.id} className="bg-white rounded-2xl shadow-md p-4">
-          <div className="flex items-center justify-between">
-              <h3 className="font-medium">{p.user?.id ? (
-              <Link
-                href={`/usuario/${p.user.id}`}
-                className="font-medium text-blue-600 hover:underline"
-              >
-                {p.user.name || p.user.username || "Usuario"}
-              </Link>
-            ) : (
-              <h3 className="font-medium">
-                {p.user?.name || p.user?.username || "Usuario"}
-              </h3>
-            )}</h3>
-            {p.date && (
-              <span className="text-xs text-gray-500">
-                {p.topic} · {new Date(p.date).toLocaleDateString()}
-              </span>
-            )}
-          </div>
-          <p className="mt-2 text-gray-700">{p.text}</p>
-          {p.image && (
-            <img
-              src={p.image}
-              alt={p.topic}
-              className="mt-3 rounded-xl w-full h-56 object-cover"
-            />
-          )}
-          <div className="mt-3 flex justify-end">
-          <button
-            onClick={() => handleUnlikeFromProfile(p.id)}
-            className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-full
-                       bg-gray-100 hover:bg-red-50 text-gray-600 hover:text-red-600
-                       border border-gray-200"
-          >
-            <span>💔</span>
-            <span>Quitar me gusta</span>
-          </button>
         </div>
-        </article>
-      ))}
-      {likedPosts.length === 0 && (
-        <p className="text-center text-gray-500">
-          Todavía no has dado me gusta a ninguna publicación.
-        </p>
-      )}
-    </div> )}
       </section>
+
+      <UserListModal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={modalType === "followers" ? "Seguidores" : "Seguidos"}
+        users={modalType === "followers" ? followersList : followingList}
+      />
     </div>
   );
 }
@@ -723,92 +621,6 @@ function Stat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active?: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-3 py-1.5 rounded-full text-sm transition
-      ${active ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
-    >
-      {children}
-    </button>
-  );
-}
-
-function ListUsers({
-  title,
-  users,
-  emptyText,
-}: {
-  title: string;
-  users: { id: string; name: string; username: string }[];
-  emptyText: string;
-}) {
-  if (users.length === 0) return <p className="text-center text-gray-500">{emptyText}</p>;
-  return (
-    <div className="bg-white rounded-2xl shadow-md">
-      <h4 className="px-4 pt-4 text-sm font-semibold text-gray-700">{title}</h4>
-      <ul className="p-4 space-y-3">
-        {users.map((u) => (
-          <li key={u.id} className="flex items-center justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-semibold text-gray-700">
-                {u.name[0]}
-              </div>
-              <div className="min-w-0">
-                <div className="text-sm font-medium truncate">{u.name}</div>
-                <div className="text-xs text-gray-500 truncate">@{u.username}</div>
-              </div>
-            </div>
-            <button className="text-xs px-2 py-1 rounded-full bg-gray-100 hover:bg-blue-50 hover:text-blue-700">
-              Ver
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
-function ListCommunities({
-  title,
-  communities,
-  emptyText,
-}: {
-  title: string;
-  communities: { id: string; name: string; topic: string }[];
-  emptyText: string;
-}) {
-  if (communities.length === 0) return <p className="text-center text-gray-500">{emptyText}</p>;
-  return (
-    <div className="bg-white rounded-2xl shadow-md">
-      <h4 className="px-4 pt-4 text-sm font-semibold text-gray-700">{title}</h4>
-      <ul className="p-4 space-y-3">
-        {communities.map((c) => (
-          <li key={c.id} className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-medium">{c.name}</div>
-              <div className="text-xs text-gray-500">{c.topic}</div>
-            </div>
-            <button className="text-xs px-2 py-1 rounded-full bg-gray-100 hover:bg-blue-50 hover:text-blue-700">
-              Ver
-            </button>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-
-}
-
 function PostFilters({
   topicFilter,
   setTopicFilter,
@@ -920,3 +732,4 @@ function PostFilters({
     </div>
   );
 }
+

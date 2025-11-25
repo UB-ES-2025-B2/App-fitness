@@ -1,6 +1,5 @@
 from datetime import datetime
-from app import db  
-from . import follow
+from .. import db
 
 class PostLike(db.Model):
     __tablename__ = "post_like"

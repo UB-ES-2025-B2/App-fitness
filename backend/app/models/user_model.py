@@ -33,6 +33,7 @@ class User(db.Model):
         lazy="dynamic",
         backref=db.backref("following", lazy="dynamic"),
     )
+
     liked_posts = db.relationship(
         "Post",
         secondary="post_like",

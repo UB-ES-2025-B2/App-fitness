@@ -43,7 +43,7 @@ def _mk_verify(user_id, jti):
 def _send_verification_email(to_email, verify_url):
     api_key = os.getenv("RESEND_API_KEY")
     if not api_key:
-        current_app.logger.warning("RESEND_API_KEY not set; skipping email send.")
+        current_app.logger.warning(f"RESEND_API_KEY not set. Verify URL: {verify_url}")
         return
     #change from email to allow for sneding to other emails
     payload = {
@@ -102,7 +102,7 @@ def auth_required(fn):
             return jsonify({"error": "El token ha caducado"}), 401
         except jwt.InvalidTokenError:
             return jsonify({"error": "Token inválido"}), 401
-        return fn(user, *args, **kwargs)
+        return fn(*args, **kwargs)
     return _wrapped
 
 @bp.route('/register', methods=['POST'])
