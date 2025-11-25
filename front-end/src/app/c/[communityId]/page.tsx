@@ -171,7 +171,7 @@ const formatDate = (iso: string) => {
   const buttonStyle = { backgroundColor: themeColor };
   
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-100">
+    <div className="min-h-screen bg-gray-900 text-gray-100 pt-24">
       {/* Encabezado */}
       <div className="relative h-48 md:h-64" style={headerStyle}>
         <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black opacity-60"></div>
