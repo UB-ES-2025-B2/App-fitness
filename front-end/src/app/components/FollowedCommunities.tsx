@@ -40,7 +40,7 @@ export default async function FollowedCommunities() {
             border border-gray-200 dark:border-slate-700
             transition-all duration-300
             w-[260px]
-            h-[60px] hover:h-[px]
+            h-[60px] hover:h-[150px]
             overflow-hidden
             p-4
             
