@@ -6,6 +6,8 @@ from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 
 from datetime import datetime
+import pathlib
+import traceback
 
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -34,6 +36,33 @@ def driver():
 
     yield driver
     driver.quit()
+
+
+@pytest.hookimpl(tryfirst=True, hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """On test failure, capture screenshot and page source (if driver fixture present).
+    Artifacts will be written under `test_integracion/artifacts/` for later upload.
+    """
+    outcome = yield
+    rep = outcome.get_result()
+    if rep.when == "call" and rep.failed:
+        driver = item.funcargs.get("driver")
+        if driver:
+            artifacts_dir = pathlib.Path(__file__).resolve().parent / "artifacts"
+            artifacts_dir.mkdir(exist_ok=True)
+            name = f"{item.nodeid.replace('/', '_').replace('::', '_') }"
+            try:
+                screenshot_path = artifacts_dir / f"{name}.png"
+                driver.save_screenshot(str(screenshot_path))
+            except Exception:
+                # ensure we don't mask original failure
+                traceback.print_exc()
+            try:
+                html_path = artifacts_dir / f"{name}.html"
+                with open(html_path, "w", encoding="utf-8") as f:
+                    f.write(driver.page_source)
+            except Exception:
+                traceback.print_exc()
 
 @pytest.fixture(scope='session')
 def app():
