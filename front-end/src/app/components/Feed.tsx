@@ -32,6 +32,7 @@ type BackendPost = {
   user?: { id: number; username: string; name?: string | null } | null;
   likes?: number;
   liked?: boolean;
+  likedByMe?: boolean;
 };
 
 function normalizePost(p: BackendPost): Post {
@@ -58,7 +59,7 @@ function normalizePost(p: BackendPost): Post {
     user: userName,
     userId,
     likeCount: p.likes ?? 0,
-    likedByMe: p.liked ?? false,
+    likedByMe: p.likedByMe ?? p.liked ?? false,
     date: bestDate,
   };
 }
