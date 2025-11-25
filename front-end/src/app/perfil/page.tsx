@@ -54,6 +54,11 @@ type BackendPost = {
   created_at?: string | null;
   image?: string | null;
   image_url?: string | null;
+  user?: {
+    id: number;
+    username: string;
+    name?: string | null;
+  } | null;
 };
 async function fetchMyLikedPosts(): Promise<Post[]> {
   const res = await authFetch("/api/posts/me/likes");
@@ -70,10 +75,16 @@ async function fetchMyLikedPosts(): Promise<Post[]> {
     topic: p.topic ?? "General",
     date: p.date ?? p.created_at ?? "",
     image: p.image ?? p.image_url ?? undefined,
+    user: p.user ?? undefined,
   }));
 }
 
-type Post = { id: number; text: string; image?: string; topic: string; date: string };
+type Post = { id: number; text: string; image?: string; topic: string; date: string; user?: {
+      id: number;
+      username: string;
+      name?: string | null;
+    } | null;
+ };
 type User = { id: string; name: string; username: string };
 type Community = { id: string; name: string; topic: string };
 
@@ -477,7 +488,7 @@ export default function ProfilePage() {
       {likedPosts.map((p) => (
         <article key={p.id} className="bg-white rounded-2xl shadow-md p-4">
           <div className="flex items-center justify-between">
-            <h3 className="font-medium">{profile.nombre}</h3>
+            <h3 className="font-medium">{p.user?.name || p.user?.username || "Usuario"}</h3>
             {p.date && (
               <span className="text-xs text-gray-500">
                 {p.topic} · {new Date(p.date).toLocaleDateString()}
