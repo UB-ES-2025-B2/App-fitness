@@ -201,10 +201,8 @@ export default function Feed() {
   // ------------------------------
   // Visible posts (filtered)
   // ------------------------------
-  const now = new Date();
 
-
-  let visible = posts
+  const visible = posts
     .filter((p) => topic === "Todos" || p.topic === topic)
     .sort((a, b) => {
       const da = new Date(a.date ?? "").getTime();
