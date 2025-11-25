@@ -25,8 +25,12 @@ def driver():
     options.add_argument("--start-maximized")
     options.add_argument("--headless=new")
 
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()),
-                              options=options)
+    try:
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=options)
+    except Exception as e:
+        pytest.skip(f"Skipping integration test: Chrome driver could not be initialized (Chrome might be missing). Error: {e}")
+        return
 
     yield driver
     driver.quit()
