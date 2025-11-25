@@ -20,6 +20,24 @@ from app import create_app, db
 from app.models.user_model import User
 from app.models.post_model import Post
 
+# Safety: avoid running tests that would drop a non-test database.
+DB_URL = os.environ.get('DATABASE_URL', '')
+def _is_test_db(url: str) -> bool:
+    if not url:
+        return False
+    url_l = url.lower()
+    # Allow in-memory sqlite and local sqlite files
+    if url_l.startswith('sqlite://'):
+        return True
+    # Treat localhost references as test (best-effort)
+    if 'localhost' in url_l or '127.0.0.1' in url_l:
+        return True
+    return False
+
+if not _is_test_db(DB_URL):
+    # Prevent accidental destructive operations on production DB
+    raise RuntimeError(f"Refusing to run test fixtures: unsafe DATABASE_URL='{DB_URL}'")
+
 
 @pytest.fixture(scope='function')
 def app():

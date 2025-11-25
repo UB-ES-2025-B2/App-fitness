@@ -72,7 +72,22 @@ def app():
     app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
     app.config['SECRET_KEY'] = 'test-secret'
 
-    # Create app context for DB operations
+    # Safety: ensure we won't accidentally drop a non-test DB
+    db_url = os.environ.get('DATABASE_URL', '')
+    def _is_test_db(url: str) -> bool:
+        if not url:
+            return False
+        url_l = url.lower()
+        if url_l.startswith('sqlite://'):
+            return True
+        if 'localhost' in url_l or '127.0.0.1' in url_l:
+            return True
+        return False
+
+    if not _is_test_db(db_url):
+        raise RuntimeError(f"Refusing to run test fixtures: unsafe DATABASE_URL='{db_url}'")
+
+    # Create app context for DB operations (safe)
     with app.app_context():
         db.create_all()
         yield app
