@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-// Tipo de comunidad (igual que antes)
+// Clase Community para tipar las comunidades seguidas
 type Community = {
   id: string;
   name: string;
