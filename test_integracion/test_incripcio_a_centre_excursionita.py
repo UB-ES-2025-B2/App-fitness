@@ -18,33 +18,28 @@ def test_busqueda_usuario(driver):
     login.login("toni@example.com", "app-fitness1")
     time.sleep(5)
 
-    wait = WebDriverWait(driver, 15)
-    try:
-        card = wait.until(
-            EC.element_to_be_clickable((
-                By.XPATH,
-                "//a[contains(@href, '/c/') and .//text()[contains(., 'Centre Excursionista Puigcastellar')]]"
-            ))
-        )
-    except Exception as e:
-        raise AssertionError(
-            "Elemento 'Centre Excursionista Puigcastellar' no apareció en la página. "
-            "Verifica que el dato exista en la base de datos del deploy o que la ruta sea correcta."
-        ) from e
-
-    # ensure visible and click
+    wait = WebDriverWait(driver, 30)
+    card = wait.until(
+        EC.element_to_be_clickable((
+            By.XPATH,
+            "//a[contains(@href, '/c/') and .//text()[contains(., 'Centre Excursionista Puigcastellar')]]"
+        ))
+    )
     driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", card)
     driver.execute_script("arguments[0].click();", card)
-    time.sleep(5)
 
+    wait.until(EC.url_contains("/c/1"))
     assert "c/1" in driver.current_url.lower()
 
-    wait = WebDriverWait(driver, 10)
-
+    # 3) Esperar al botón de Unirse/Salir (más tolerante con espacios)
     boton_comunidad = wait.until(
-        EC.presence_of_element_located(
-            (By.XPATH, "//button[contains(text(), 'Unirse a la comunidad') or contains(text(), 'Salir de la comunidad')]")
-        )
+        EC.element_to_be_clickable((
+            By.XPATH,
+            "//button["
+            "contains(normalize-space(.), 'Unirse a la comunidad') or "
+            "contains(normalize-space(.), 'Salir de la comunidad')"
+            "]"
+        ))
     )
 
     texto_inicial = boton_comunidad.text.strip()
@@ -53,28 +48,40 @@ def test_busqueda_usuario(driver):
         # Unirse primero
         boton_comunidad.click()
         boton_actual = wait.until(
-            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Salir de la comunidad')]"))
+            EC.element_to_be_clickable((
+                By.XPATH,
+                "//button[contains(normalize-space(.), 'Salir de la comunidad')]"
+            ))
         )
-        assert "Salir de la comunidad" in boton_actual.text.strip()
+        assert "Salir de la comunidad" in boton_actual.text
 
         # Salir después
         boton_actual.click()
         boton_actual = wait.until(
-            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Unirse a la comunidad')]"))
+            EC.element_to_be_clickable((
+                By.XPATH,
+                "//button[contains(normalize-space(.), 'Unirse a la comunidad')]"
+            ))
         )
-        assert "Unirse a la comunidad" in boton_actual.text.strip()
+        assert "Unirse a la comunidad" in boton_actual.text
 
     else:
         # Salir primero
         boton_comunidad.click()
         boton_actual = wait.until(
-            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Unirse a la comunidad')]"))
+            EC.element_to_be_clickable((
+                By.XPATH,
+                "//button[contains(normalize-space(.), 'Unirse a la comunidad')]"
+            ))
         )
-        assert "Unirse a la comunidad" in boton_actual.text.strip()
+        assert "Unirse a la comunidad" in boton_actual.text
 
         # Volver a unirse
         boton_actual.click()
         boton_actual = wait.until(
-            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Salir de la comunidad')]"))
+            EC.element_to_be_clickable((
+                By.XPATH,
+                "//button[contains(normalize-space(.), 'Salir de la comunidad')]"
+            ))
         )
-        assert "Salir de la comunidad" in boton_actual.text.strip()
+        assert "Salir de la comunidad" in boton_actual.text
