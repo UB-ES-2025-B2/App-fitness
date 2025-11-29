@@ -21,14 +21,20 @@ def test_busqueda_usuario(driver):
     wait = WebDriverWait(driver, 15)
     try:
         card = wait.until(
-            EC.presence_of_element_located(
-                (By.XPATH, "//img[@alt='Centre Excursionista Puigcastellar']/ancestor::a[1]")
+            EC.element_to_be_clickable(
+                (
+                    By.XPATH,
+                    # h2 o h3 que contiene el texto, y subimos al contenedor clickable
+                    "//*[self::h2 or self::h3]"
+                    "[contains(normalize-space(.), 'Centre Excursionista Puigcastellar')]"
+                    "/ancestor::*[self::a or self::article or self::div][1]"
+                )
             )
         )
     except Exception as e:
         raise AssertionError(
-            "Elemento 'Centre Excursionista Puigcastellar' no apareció en la página. "
-            "Verifica que el dato exista en la base de datos del deploy o que la ruta sea correcta."
+            "No se encontró la tarjeta de 'Centre Excursionista Puigcastellar' "
+            "en la página de comunidades. Revisa el texto del título o el selector XPath."
         ) from e
 
     # ensure visible and click

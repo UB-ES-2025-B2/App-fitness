@@ -150,6 +150,26 @@ export default function ProfilePage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>("ALL");
   const [sortOrder, setSortOrder] = useState<SortOrder>("DESC");
 
+  const [postToDelete, setPostToDelete] = useState<number | null>(null);
+
+  const askDeletePost = (id: number) => {
+    setPostToDelete(id);
+  };
+
+  const cancelDeletePost = () => {
+    setPostToDelete(null);
+  };
+
+  const confirmDeletePost = () => {
+    if (postToDelete === null) return;
+
+    // FRONTEND SOLO: quitamos el post de la lista local
+    setPosts((prev) => prev.filter((p) => p.id !== postToDelete));
+    setPostToDelete(null);
+
+    // TODO: cuando tengáis endpoint, aquí iría el fetch DELETE al backend
+  };
+
   // Posts filtrados + ordenados
   const visiblePosts = (() => {
   if (!posts || posts.length === 0) return [];
@@ -395,7 +415,14 @@ export default function ProfilePage() {
           {!postsLoading && visiblePosts.length > 0 && (
             <>
               {visiblePosts.map((p) => (
-                <article key={p.id} className="bg-white rounded-2xl shadow-md p-4">
+                <article key={p.id} className="bg-white rounded-2xl shadow-md p-4 relative">
+                    <button
+                      type="button"
+                      onClick={() => askDeletePost(p.id)}
+                      className="absolute -top-3 right-3 text-xs px-2 py-1 rounded-full bg-red-600 text-white hover:bg-red-700 shadow"
+                    >
+                      Eliminar
+                    </button>
                   <div className="flex items-center justify-between">
                     <h3 className="font-medium">
                       {profile.nombre || profile.username || "Tú"}
@@ -409,6 +436,31 @@ export default function ProfilePage() {
                       })}
                     </span>
                   </div>
+
+                  {postToDelete === p.id && (
+                    <div className="mt-3 p-3 border border-red-200 bg-red-50 rounded-xl text-sm text-red-800">
+                      <p className="mb-2 font-semibold">
+                        ¿Seguro que quieres eliminar esta publicación?
+                      </p>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={cancelDeletePost}
+                          className="px-3 py-1 rounded-lg text-xs bg-white border border-red-200 hover:bg-red-100"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={confirmDeletePost}
+                          className="px-3 py-1 rounded-lg text-xs bg-red-600 text-white hover:bg-red-700"
+                        >
+                          Confirmar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <p className="mt-2 text-gray-700">{p.text}</p>
                   {p.image && (
                     <img
