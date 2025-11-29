@@ -160,14 +160,28 @@ export default function ProfilePage() {
     setPostToDelete(null);
   };
 
-  const confirmDeletePost = () => {
+  const confirmDeletePost = async () => {
     if (postToDelete === null) return;
 
-    // FRONTEND SOLO: quitamos el post de la lista local
-    setPosts((prev) => prev.filter((p) => p.id !== postToDelete));
-    setPostToDelete(null);
+    try {
+      const res = await authFetch(`/api/posts/${postToDelete}`, {
+        method: "DELETE",
+      });
 
-    // TODO: cuando tengáis endpoint, aquí iría el fetch DELETE al backend
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("Error al borrar post:", text);
+        alert("No se pudo eliminar la publicación");
+        return;
+      }
+
+      // Si el back responde OK, actualizamos la lista en el front
+      setPosts((prev) => prev.filter((p) => p.id !== postToDelete));
+      setPostToDelete(null);
+    } catch (err) {
+      console.error("Error de red al eliminar el post:", err);
+      alert("Error de red al eliminar la publicación");
+    }
   };
 
   // Posts filtrados + ordenados

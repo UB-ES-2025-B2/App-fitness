@@ -1,8 +1,8 @@
 """empty message
 
-Revision ID: c441f0344b32
+Revision ID: fc2292755bbd
 Revises: 
-Create Date: 2025-11-29 11:21:55.724919
+Create Date: 2025-11-29 20:11:17.305836
 
 """
 from alembic import op
@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 from sqlalchemy.dialects import sqlite
 
 # revision identifiers, used by Alembic.
-revision = 'c441f0344b32'
+revision = 'fc2292755bbd'
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -26,30 +26,30 @@ def upgrade():
     with op.batch_alter_table('community_admins', schema=None) as batch_op:
         batch_op.drop_constraint(batch_op.f('community_admins_community_id_fkey'), type_='foreignkey')
         batch_op.drop_constraint(batch_op.f('community_admins_user_id_fkey'), type_='foreignkey')
-        batch_op.create_foreign_key(None, 'user', ['user_id'], ['id'])
         batch_op.create_foreign_key(None, 'community', ['community_id'], ['id'])
+        batch_op.create_foreign_key(None, 'user', ['user_id'], ['id'])
 
     with op.batch_alter_table('community_members', schema=None) as batch_op:
         batch_op.drop_constraint(batch_op.f('community_members_community_id_fkey'), type_='foreignkey')
         batch_op.drop_constraint(batch_op.f('community_members_user_id_fkey'), type_='foreignkey')
-        batch_op.create_foreign_key(None, 'user', ['user_id'], ['id'])
         batch_op.create_foreign_key(None, 'community', ['community_id'], ['id'])
+        batch_op.create_foreign_key(None, 'user', ['user_id'], ['id'])
 
     with op.batch_alter_table('email_verifications', schema=None) as batch_op:
         batch_op.drop_constraint(batch_op.f('email_verifications_user_id_fkey'), type_='foreignkey')
         batch_op.create_foreign_key(None, 'user', ['user_id'], ['id'])
 
     with op.batch_alter_table('event', schema=None) as batch_op:
-        batch_op.drop_constraint(batch_op.f('event_created_by_fkey'), type_='foreignkey')
         batch_op.drop_constraint(batch_op.f('event_community_id_fkey'), type_='foreignkey')
-        batch_op.create_foreign_key(None, 'user', ['created_by'], ['id'])
+        batch_op.drop_constraint(batch_op.f('event_created_by_fkey'), type_='foreignkey')
         batch_op.create_foreign_key(None, 'community', ['community_id'], ['id'])
+        batch_op.create_foreign_key(None, 'user', ['created_by'], ['id'])
 
     with op.batch_alter_table('event_participants', schema=None) as batch_op:
-        batch_op.drop_constraint(batch_op.f('event_participants_user_id_fkey'), type_='foreignkey')
         batch_op.drop_constraint(batch_op.f('event_participants_event_id_fkey'), type_='foreignkey')
-        batch_op.create_foreign_key(None, 'user', ['user_id'], ['id'])
+        batch_op.drop_constraint(batch_op.f('event_participants_user_id_fkey'), type_='foreignkey')
         batch_op.create_foreign_key(None, 'event', ['event_id'], ['id'])
+        batch_op.create_foreign_key(None, 'user', ['user_id'], ['id'])
 
     with op.batch_alter_table('post', schema=None) as batch_op:
         batch_op.alter_column('created_at',
@@ -121,14 +121,14 @@ def downgrade():
     with op.batch_alter_table('event_participants', schema=None) as batch_op:
         batch_op.drop_constraint(None, type_='foreignkey')
         batch_op.drop_constraint(None, type_='foreignkey')
-        batch_op.create_foreign_key(batch_op.f('event_participants_event_id_fkey'), 'event', ['event_id'], ['id'], ondelete='CASCADE')
         batch_op.create_foreign_key(batch_op.f('event_participants_user_id_fkey'), 'user', ['user_id'], ['id'], ondelete='CASCADE')
+        batch_op.create_foreign_key(batch_op.f('event_participants_event_id_fkey'), 'event', ['event_id'], ['id'], ondelete='CASCADE')
 
     with op.batch_alter_table('event', schema=None) as batch_op:
         batch_op.drop_constraint(None, type_='foreignkey')
         batch_op.drop_constraint(None, type_='foreignkey')
-        batch_op.create_foreign_key(batch_op.f('event_community_id_fkey'), 'community', ['community_id'], ['id'], ondelete='CASCADE')
         batch_op.create_foreign_key(batch_op.f('event_created_by_fkey'), 'user', ['created_by'], ['id'], ondelete='CASCADE')
+        batch_op.create_foreign_key(batch_op.f('event_community_id_fkey'), 'community', ['community_id'], ['id'], ondelete='CASCADE')
 
     with op.batch_alter_table('email_verifications', schema=None) as batch_op:
         batch_op.drop_constraint(None, type_='foreignkey')

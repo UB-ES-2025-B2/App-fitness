@@ -1,3 +1,4 @@
+from datetime import timezone
 from flask import Blueprint, jsonify, request, g, current_app
 import jwt
 from app.models.post_model import Post
@@ -124,3 +125,22 @@ def get_posts():
             "created_at": post.created_at.replace(tzinfo=timezone.utc).isoformat()
         })
     return jsonify(data)
+
+@bp.delete("/<int:post_id>")
+@token_required
+def delete_post(current_user, post_id):
+    """
+    Elimina un post SOLO si pertenece al usuario autenticado.
+    """
+    post = Post.query.get(post_id)
+    if not post:
+        return jsonify({"error": "Post no encontrado"}), 404
+
+    # Asegurarnos de que solo el dueño pueda borrarlo
+    if post.user_id != current_user.id:
+        return jsonify({"error": "No tienes permiso para eliminar este post"}), 403
+
+    db.session.delete(post)
+    db.session.commit()
+
+    return jsonify({"message": "Post eliminado correctamente"}), 200
