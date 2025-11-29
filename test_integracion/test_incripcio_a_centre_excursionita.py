@@ -21,9 +21,10 @@ def test_busqueda_usuario(driver):
     wait = WebDriverWait(driver, 15)
     try:
         card = wait.until(
-            EC.presence_of_element_located(
-                (By.XPATH, "//img[@alt='Centre Excursionista Puigcastellar']/ancestor::a[1]")
-            )
+            EC.element_to_be_clickable((
+                By.XPATH,
+                "//a[contains(@href, '/c/') and .//text()[contains(., 'Centre Excursionista Puigcastellar')]]"
+            ))
         )
     except Exception as e:
         raise AssertionError(
