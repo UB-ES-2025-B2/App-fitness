@@ -2,7 +2,6 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
 
-from app.routes import city
 from .config import Config
 from flask_migrate import Migrate
 # from flask_mail import Mail
@@ -27,6 +26,7 @@ def create_app(test_config=None):
     from app.routes.auth import bp as auth_bp
     from app.routes import upload
     from .routes.search import bp as search_bp
+    from app.routes import city
 
     migrate.init_app(app, db)
 
