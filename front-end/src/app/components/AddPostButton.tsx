@@ -16,6 +16,8 @@ type NewPostPayload = {
   image?: string;
 };
 
+
+
 export default function AddPostButton() {
   const [open, setOpen] = useState(false);
   const { topic } = useTopic();
@@ -38,19 +40,30 @@ export default function AddPostButton() {
         />
       </button>
 
-      {open && <Composer defaultTopic={topic} onClose={() => setOpen(false)} />}
+      {open && (
+        <PostComposer
+          defaultTopic={topic}
+          onClose={() => setOpen(false)}
+        />
+      )}
     </>
   );
 }
 
-function Composer({
+export function PostComposer({
   defaultTopic,
   onClose,
+  forcedImage = false,
+  defaultText = "",
+  onPostCreated,
 }: {
   defaultTopic: Topic | string;
   onClose: () => void;
+  forcedImage?: boolean;
+  defaultText?: string;
+  onPostCreated?: (post: NewPostPayload) => void;
 }) {
-  const [text, setText] = useState("");
+  const [text, setText] = useState(defaultText);
   const [topic, setTopic] = useState<string>(defaultTopic || "Todos");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -61,6 +74,10 @@ function Composer({
   const [crop, setCrop] = useState({ x: 0, y: 0 });
   const [zoom, setZoom] = useState(1);
   const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null);
+
+  useEffect(() => {
+    setText(defaultText);
+  }, [defaultText]);
 
   useEffect(() => {
     if (!file) return setPreview(null);
@@ -76,11 +93,16 @@ function Composer({
     let imageUrl: string | undefined;
 
     try {
-      const tokens = getTokens(); // debería devolver { access_token, refresh_token } o similar
+      const tokens = getTokens();
       const access = tokens?.access_token;
       if (!access) throw new Error("No estás autenticado");
 
-      // Subida
+      // ⬇️ FORZAR IMAGEN SI forcedImage = true
+      if (forcedImage && !file) {
+        throw new Error("Debes subir una imagen para validar la actividad.");
+      }
+
+      // Subida imagen, si hay
       if (file) {
         const formData = new FormData();
         formData.append("image", file);
@@ -103,27 +125,39 @@ function Composer({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ topic, text, image_url: imageUrl }),
       });
-      
+
       if (!postRes.ok) throw new Error("Error al crear el post");
 
       const newPost = await postRes.json();
 
-      const normalizedPost = {
+      const normalizedPost: NewPostPayload = {
         id: newPost.id,
         text: newPost.text,
         topic: newPost.topic,
-        image: newPost.image,
+        image: newPost.image ?? newPost.image_url,
         user:
           typeof newPost.user === "string"
             ? newPost.user
             : newPost.user?.name || newPost.user?.username || "Usuari",
       };
 
-      window.dispatchEvent(new CustomEvent("new-post", { detail: normalizedPost }));
+      // Evento global para el perfil
+      window.dispatchEvent(
+        new CustomEvent("new-post", { detail: normalizedPost })
+      );
+
+      // Callback opcional (para actividades)
+      if (onPostCreated) {
+        onPostCreated(normalizedPost);
+      }
+
       onClose();
     } catch (err) {
       console.error("❌ Error creant el post:", err);
-      alert("Hi ha hagut un error en crear el post o pujar la imatge.");
+      alert(
+        (err as Error).message ||
+          "Hi ha hagut un error en crear el post o pujar la imatge."
+      );
     } finally {
       setUploading(false);
     }
@@ -201,6 +235,7 @@ function Composer({
           </button>
         </div>
 
+        {/* Temática */}
         <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
           Temàtica
         </label>
@@ -216,6 +251,7 @@ function Composer({
           ))}
         </select>
 
+        {/* Texto */}
         <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
           Text
         </label>
@@ -226,8 +262,9 @@ function Composer({
           onChange={(e) => setText(e.target.value)}
         />
 
+        {/* Imagen */}
         <label className="block text-sm text-gray-600 dark:text-gray-400 mb-1">
-          Imatge
+          Imatge {forcedImage && <span className="text-red-500">*</span>}
         </label>
         <div className="flex flex-col items-center justify-center mb-3">
           <label
@@ -247,7 +284,11 @@ function Composer({
             }}
             className="hidden"
           />
-          {file && <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{file.name}</p>}
+          {file && (
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
+              {file.name}
+            </p>
+          )}
         </div>
 
         {preview && (

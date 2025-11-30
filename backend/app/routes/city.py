@@ -150,3 +150,59 @@ def get_city_progress(current_user, city_id):
     """
     payload = calculate_user_city_progress(current_user.id, city_id)
     return jsonify(payload), 200
+
+@bp.get("/my")
+@token_required
+def get_my_cities(current_user):
+    """
+    Devuelve la lista de ciudades en las que el usuario tiene alguna actividad,
+    junto con su porcentaje de progreso en cada una.
+    Formato:
+    [
+      { "id": 1, "name": "Barcelona", "progress_percentage": 40 },
+      ...
+    ]
+    """
+    # Buscar todas las city_id donde el usuario tenga al menos una UserActivity
+    city_ids_rows = (
+        db.session.query(Activity.city_id)
+        .join(UserActivity, UserActivity.activity_id == Activity.id)
+        .filter(UserActivity.user_id == current_user.id)
+        .distinct()
+        .all()
+    )
+    city_ids = [row[0] for row in city_ids_rows]
+
+    if not city_ids:
+        return jsonify([]), 200
+
+    # Para cada ciudad, reutilizamos calculate_user_city_progress
+    result = []
+    for cid in city_ids:
+        progress_payload = calculate_user_city_progress(current_user.id, cid)
+        result.append(
+            {
+                "id": progress_payload["city"]["id"],
+                "name": progress_payload["city"]["name"],
+                "progress_percentage": progress_payload["stats"]["progress_percentage"],
+            }
+        )
+
+    # Devolvemos la lista
+    return jsonify(result), 200
+
+@bp.get("/")
+def list_cities():
+    """
+    Devuelve todas las ciudades disponibles.
+    """
+    cities = City.query.order_by(City.name.asc()).all()
+    return jsonify([
+        {
+            "id": c.id,
+            "name": c.name,
+            "country": c.country,
+            "slug": c.slug,
+        }
+        for c in cities
+    ]), 200
