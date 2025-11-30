@@ -1,6 +1,8 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+
+from app.routes import city
 from .config import Config
 from flask_migrate import Migrate
 # from flask_mail import Mail
@@ -37,7 +39,7 @@ def create_app(test_config=None):
     app.register_blueprint(auth_bp)
     app.register_blueprint(upload.bp)
     app.register_blueprint(search_bp)
-
+    app.register_blueprint(city.bp)
 
     
     #  HOME VISUAL UB FITNESS 
