@@ -43,13 +43,35 @@ export default function ProgresoPage() {
   }, []);
 
   return (
-    <main className="max-w-4xl mx-auto px-4 lg:px-0 pt-24 pb-10">
-      <h1 className="text-2xl md:text-3xl font-bold mb-4">
-        Progreso por ciudad
-      </h1>
-      <p className="text-sm text-gray-600 mb-6">
-        Aquí puedes ver tu progreso en todas las ciudades disponibles.
-      </p>
+    <main className="max-w-5xl mx-auto px-4 lg:px-0 pt-24 pb-10">
+      <header className="mb-8 flex flex-col gap-2">
+        {/* Línea superior con icono + título grande */}
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl 
+                          bg-gradient-to-br from-blue-500 to-indigo-500 shadow-lg">
+            <span className="text-xl">🗺️</span>
+          </div>
+          <div>
+            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight
+                          bg-gradient-to-r from-white via-blue-100 to-sky-200
+                          bg-clip-text text-transparent">
+              Progreso por ciudad
+            </h1>
+            <p className="text-xs md:text-sm text-slate-300 mt-1">
+              Sigue tus rutas y actividades completadas en cada ciudad. Cuando completes una actividad pulsa en la cámara y muestra tu energía al mundo!
+            </p>
+          </div>
+        </div>
+
+        {/* Línea inferior: mini resumen / badge */}
+        <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-slate-700/70 
+                        bg-slate-900/70 px-3 py-1 text-[11px] text-slate-300 shadow-sm">
+          <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400 mr-1" />
+          <span>Panel interactivo</span>
+          <span className="h-3 w-px bg-slate-700 mx-1" />
+          <span>Filtra por dificultad, tipo y estado de las actividades.</span>
+        </div>
+      </header>
 
       {loading && <p>Cargando ciudades…</p>}
       {error && <p className="text-red-600 text-sm">{error}</p>}
