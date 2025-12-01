@@ -41,16 +41,27 @@ type Props = {
   compact?: boolean; // para variar la densidad en home/perfil/página propia
 };
 
+type DifficultyFilter = "ALL" | "easy" | "medium" | "hard";
+type TypeFilter = "ALL" | "Fútbol" | "Básquet" | "Montaña";
+type CompletionFilter = "ALL" | "DONE" | "PENDING";
+
 export default function CityProgressPanel({ cityId, compact }: Props) {
   const [data, setData] = useState<CityProgressResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Estado para completar actividad + recarga
+  // completar actividad + recarga
   const [activityToComplete, setActivityToComplete] =
     useState<CityActivity | null>(null);
   const [showComposer, setShowComposer] = useState(false);
   const [reloadTick, setReloadTick] = useState(0);
+
+  // filtros
+  const [difficultyFilter, setDifficultyFilter] =
+    useState<DifficultyFilter>("ALL");
+  const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
+  const [completionFilter, setCompletionFilter] =
+    useState<CompletionFilter>("ALL");
 
   useEffect(() => {
     let cancelled = false;
@@ -82,7 +93,7 @@ export default function CityProgressPanel({ cityId, compact }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [cityId, reloadTick]); // recargamos al cambiar reloadTick
+  }, [cityId, reloadTick]);
 
   const radius = 40;
   const circumference = 2 * Math.PI * radius;
@@ -96,6 +107,33 @@ export default function CityProgressPanel({ cityId, compact }: Props) {
     setShowComposer(true);
   }
 
+  // aplica filtros sobre actividades
+  const filteredActivities =
+    data?.activities.filter((act) => {
+      // filtro estado
+      if (completionFilter === "DONE" && !act.completed) return false;
+      if (completionFilter === "PENDING" && act.completed) return false;
+
+      // filtro dificultad
+      if (difficultyFilter !== "ALL") {
+        const d = (act.difficulty || "").toLowerCase();
+        if (d !== difficultyFilter) return false;
+      }
+
+      // filtro tipo
+      if (typeFilter !== "ALL") {
+        const t = (act.type || "").toLowerCase();
+        if (t !== typeFilter.toLowerCase()) return false;
+      }
+
+      return true;
+    }) ?? [];
+
+  const hasFiltersApplied =
+    difficultyFilter !== "ALL" ||
+    typeFilter !== "ALL" ||
+    completionFilter !== "ALL";
+
   return (
     <section
       className={
@@ -103,7 +141,7 @@ export default function CityProgressPanel({ cityId, compact }: Props) {
         (compact ? "p-4" : "p-5 md:p-6")
       }
     >
-      {/* Halo decorativo */}
+      {/* halos decorativos */}
       <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
       <div className="pointer-events-none absolute -left-10 -bottom-10 h-32 w-32 rounded-full bg-cyan-400/20 blur-3xl" />
 
@@ -114,7 +152,6 @@ export default function CityProgressPanel({ cityId, compact }: Props) {
           </h2>
           <p className="text-lg md:text-xl font-bold">{title}</p>
         </div>
-        {/* donut de progreso */}
         <div className="relative flex items-center justify-center">
           <svg
             className="w-16 h-16 md:w-20 md:h-20 -rotate-90"
@@ -193,6 +230,101 @@ export default function CityProgressPanel({ cityId, compact }: Props) {
             )}
           </div>
 
+          {/* FILTROS – solo cuando NO es compacto */}
+          {!compact && (
+            <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+              {/* dificultad */}
+              <div className="flex items-center gap-1">
+                <span className="text-white/70 mr-1">Dificultad:</span>
+                {(["ALL", "easy", "medium", "hard"] as DifficultyFilter[]).map(
+                  (d) => (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => setDifficultyFilter(d)}
+                      className={
+                        "px-2 py-1 rounded-full border transition " +
+                        (difficultyFilter === d
+                          ? "bg-sky-300 text-slate-900 border-sky-100 shadow"
+                          : "bg-white/10 text-white/80 border-white/20 hover:bg-white/20")
+                      }
+                    >
+                      {d === "ALL"
+                        ? "Todas"
+                        : d === "easy"
+                        ? "Fácil"
+                        : d === "medium"
+                        ? "Media"
+                        : "Difícil"}
+                    </button>
+                  )
+                )}
+              </div>
+
+              {/* tipo */}
+              <div className="flex items-center gap-1">
+                <span className="text-white/70 mr-1">Tipo:</span>
+                {(["ALL", "Fútbol", "Básquet", "Montaña"] as TypeFilter[]).map(
+                  (t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setTypeFilter(t)}
+                      className={
+                        "px-2 py-1 rounded-full border transition " +
+                        (typeFilter === t
+                          ? "bg-sky-300 text-slate-900 border-sky-100 shadow"
+                          : "bg-white/10 text-white/80 border-white/20 hover:bg-white/20")
+                      }
+                    >
+                      {t === "ALL" ? "Todos" : t}
+                    </button>
+                  )
+                )}
+              </div>
+
+              {/* estado */}
+              <div className="flex items-center gap-1">
+                <span className="text-white/70 mr-1">Estado:</span>
+                {(
+                  ["ALL", "DONE", "PENDING"] as CompletionFilter[]
+                ).map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setCompletionFilter(c)}
+                    className={
+                      "px-2 py-1 rounded-full border transition " +
+                      (completionFilter === c
+                        ? "bg-sky-300 text-slate-900 border-sky-100 shadow"
+                        : "bg-white/10 text-white/80 border-white/20 hover:bg-white/20")  
+                    }
+                  >
+                    {c === "ALL"
+                      ? "Todas"
+                      : c === "DONE"
+                      ? "Completadas"
+                      : "Pendientes"}
+                  </button>
+                ))}
+              </div>
+
+              {hasFiltersApplied && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDifficultyFilter("ALL");
+                    setTypeFilter("ALL");
+                    setCompletionFilter("ALL");
+                  }}
+                  className="ml-auto px-2 py-1 rounded-full bg-white/10 border border-white/30 text-white/80 hover:bg-white/20"
+                >
+                  Limpiar filtros
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Lista de actividades */}
           <div
             className={
@@ -213,9 +345,13 @@ export default function CityProgressPanel({ cityId, compact }: Props) {
               <p className="text-xs text-white/70">
                 Todavía no hay actividades definidas en esta ciudad.
               </p>
+            ) : filteredActivities.length === 0 ? (
+              <p className="text-xs text-white/80">
+                No hay actividades que cumplan los filtros actuales.
+              </p>
             ) : (
               <ul className="space-y-1.5 max-h-44 overflow-y-auto pr-1">
-                {data.activities.map((act) => (
+                {filteredActivities.map((act) => (
                   <li
                     key={act.id}
                     className={
@@ -313,7 +449,7 @@ export default function CityProgressPanel({ cityId, compact }: Props) {
       {/* Composer para marcar actividad como hecha */}
       {showComposer && activityToComplete && (
         <PostComposer
-          defaultTopic="Montaña" // o lo que quieras por defecto
+          defaultTopic="Montaña"
           forcedImage={true}
           defaultText={`¡Acabo de completar la actividad ${activityToComplete.name}!`}
           onClose={() => {
@@ -321,12 +457,9 @@ export default function CityProgressPanel({ cityId, compact }: Props) {
             setActivityToComplete(null);
           }}
           onPostCreated={async () => {
-            // marcar la actividad como completada en backend
             const res = await authFetch(
               `/api/activities/${activityToComplete.id}/complete`,
-              {
-                method: "POST",
-              }
+              { method: "POST" }
             );
 
             if (!res.ok) {
@@ -341,10 +474,7 @@ export default function CityProgressPanel({ cityId, compact }: Props) {
               return;
             }
 
-            // refrescar datos del panel
             setReloadTick((x) => x + 1);
-
-            // cerrar composer
             setShowComposer(false);
             setActivityToComplete(null);
           }}
