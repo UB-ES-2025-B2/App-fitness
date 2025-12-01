@@ -1,9 +1,10 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import CityProgressPanel from "../../components/CityProgressPanel";
 import { useEffect, useState } from "react";
 import { authFetch } from "@/app/lib/api";
+import CityProgressPanel from "../../components/CityProgressPanel";
+import CityActivitiesMap from "../../components/CityActivitiesMap";
 
 type FriendRank = {
   user_id: number;
@@ -16,6 +17,34 @@ type FriendRank = {
   total_completions: number;
 };
 
+type CityActivity = {
+  id: number;
+  name: string;
+  description?: string | null;
+  distance_km?: number | null;
+  difficulty?: string | null;
+  completed: boolean;
+  lat?: number | null;
+  lng?: number | null;
+};
+
+type CityInfo = {
+  id: number;
+  name: string;
+};
+
+type CityProgressResponse = {
+  city: CityInfo;
+  stats: {
+    total_activities_defined: number;
+    distinct_activities_completed: number;
+    total_completions: number;
+    total_distance_km: number;
+    total_duration_sec: number;
+    progress_percentage: number;
+  };
+  activities: CityActivity[];
+};
 
 export default function CityPage() {
   const params = useParams();
@@ -24,6 +53,8 @@ export default function CityPage() {
   const [friends, setFriends] = useState<FriendRank[]>([]);
   const [friendsLoading, setFriendsLoading] = useState(true);
 
+  const [activities, setActivities] = useState<CityActivity[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(true);
 
   if (!cityId || Number.isNaN(cityId)) {
     return (
@@ -34,7 +65,6 @@ export default function CityPage() {
   }
 
   async function loadFriends() {
-    if (!cityId) return;
     setFriendsLoading(true);
     try {
       const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
@@ -52,18 +82,38 @@ export default function CityPage() {
     }
   }
 
-  useEffect(() => {
-      loadFriends();
-    }, [cityId]);
+  async function loadCityProgress() {
+    setActivitiesLoading(true);
+    try {
+      const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
+      const res = await authFetch(`${base}/api/cities/${cityId}/progress`);
+      if (!res.ok) throw new Error("No se pudo cargar el progreso");
+      const json = (await res.json()) as CityProgressResponse;
+      setActivities(json.activities || []);
+    } catch (e) {
+      console.error(e);
+      setActivities([]);
+    } finally {
+      setActivitiesLoading(false);
+    }
+  }
 
-    useEffect(() => {
+  // Cargar ranking + actividades al entrar o cambiar ciudad
+  useEffect(() => {
+    loadFriends();
+    loadCityProgress();
+  }, [cityId]);
+
+  // Escuchar el evento global para refrescar el ranking (y si quieres también actividades)
+  useEffect(() => {
     function handleCityProgressUpdated(e: Event) {
       const detail = (e as CustomEvent<{ cityId: number }>).detail;
       if (!detail) return;
-      if (detail.cityId !== cityId) return; // solo si es esta ciudad
+      if (detail.cityId !== cityId) return;
 
-      // Volvemos a cargar el ranking
+      // Volvemos a cargar ranking y actividades
       loadFriends();
+      loadCityProgress();
     }
 
     window.addEventListener(
@@ -79,20 +129,23 @@ export default function CityPage() {
     };
   }, [cityId]);
 
-
   return (
     <main className="max-w-5xl mx-auto px-4 lg:px-0 pt-24 pb-10">
       {/* HEADER BONITO */}
       <header className="mb-8 flex flex-col gap-2">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl 
-                          bg-gradient-to-br from-blue-500 to-indigo-500 shadow-lg">
+          <div
+            className="flex h-10 w-10 items-center justify-center rounded-xl 
+                        bg-gradient-to-br from-blue-500 to-indigo-500 shadow-lg"
+          >
             <span className="text-xl">🗺️</span>
           </div>
           <div>
-            <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight
-                           bg-gradient-to-r from-white via-blue-100 to-sky-200
-                           bg-clip-text text-transparent">
+            <h1
+              className="text-3xl md:text-4xl font-extrabold tracking-tight
+                         bg-gradient-to-r from-white via-blue-100 to-sky-200
+                         bg-clip-text text-transparent"
+            >
               Progreso por ciudad
             </h1>
             <p className="text-xs md:text-sm text-slate-300 mt-1">
@@ -101,8 +154,10 @@ export default function CityPage() {
           </div>
         </div>
 
-        <div className="mt-3 inline-flex items-center gap-2 rounded-full border border-slate-700/70 
-                        bg-slate-900/70 px-3 py-1 text-[11px] text-slate-300 shadow-sm">
+        <div
+          className="mt-3 inline-flex items-center gap-2 rounded-full border border-slate-700/70 
+                      bg-slate-900/70 px-3 py-1 text-[11px] text-slate-300 shadow-sm"
+        >
           <span className="inline-flex h-2 w-2 rounded-full bg-emerald-400 mr-1" />
           <span>Panel interactivo</span>
           <span className="h-3 w-px bg-slate-700 mx-1" />
@@ -162,8 +217,18 @@ export default function CityPage() {
         </div>
       </section>
 
+      {/* MAPA DE ACTIVIDADES */}
+      <section className="mb-6">
+        {activitiesLoading ? (
+          <div className="rounded-2xl bg-slate-900/70 border border-slate-700/80 p-4 text-xs text-slate-300">
+            Cargando mapa de actividades…
+          </div>
+        ) : (
+          <CityActivitiesMap activities={activities} />
+        )}
+      </section>
 
-      {/* Panel degradado que ya muestra “Progreso en Barcelona/Girona…” */}
+      {/* Panel degradado que ya muestra “Progreso en X” */}
       <CityProgressPanel cityId={cityId} compact={false} />
     </main>
   );

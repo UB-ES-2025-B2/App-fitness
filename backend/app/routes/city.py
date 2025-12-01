@@ -120,6 +120,8 @@ def calculate_user_city_progress(user_id: int, city_id: int) -> dict:
                 "distance_km": float(act.distance_km) if act.distance_km is not None else None,
                 "difficulty": act.difficulty,
                 "completed": act.id in completed_ids_set,
+                "lat": float(act.lat) if act.lat is not None else None,
+                "lng": float(act.lng) if act.lng is not None else None,
             }
         )
 

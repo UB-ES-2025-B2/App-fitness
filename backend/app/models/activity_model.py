@@ -20,6 +20,9 @@ class Activity(db.Model):
     difficulty = db.Column(db.String(20)) # easy / medium / hard
     is_active = db.Column(db.Boolean, nullable=False, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    lat = db.Column(db.Numeric(9, 6))
+    lng = db.Column(db.Numeric(9, 6))
+
 
     # Relaciones
     city = db.relationship("City", back_populates="activities")

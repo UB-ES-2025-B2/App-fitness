@@ -19,6 +19,8 @@ type CityActivity = {
   distance_km?: number | null;
   difficulty?: string | null;
   completed: boolean;
+  lat?: number | null;
+  lng?: number | null;
 };
 
 type CityProgressStats = {
