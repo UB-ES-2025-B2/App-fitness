@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { authFetch, getTokens, clearTokens } from "../lib/api";
 
 import LogoutButton from "../components/LogOutButton";
+import CityProgressPanel from "../components/CityProgressPanel";
 
 type ApiUser = {
   id: number;

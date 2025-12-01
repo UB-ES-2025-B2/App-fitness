@@ -3,7 +3,7 @@ from flask import Blueprint, jsonify
 from sqlalchemy import func
 
 from app import db
-from app.models import City, Activity, UserActivity
+from app.models import City, Activity, UserActivity, User
 from app.utils.auth_utils import token_required
 
 bp = Blueprint("city", __name__, url_prefix="/api/cities")
@@ -120,6 +120,8 @@ def calculate_user_city_progress(user_id: int, city_id: int) -> dict:
                 "distance_km": float(act.distance_km) if act.distance_km is not None else None,
                 "difficulty": act.difficulty,
                 "completed": act.id in completed_ids_set,
+                "lat": float(act.lat) if act.lat is not None else None,
+                "lng": float(act.lng) if act.lng is not None else None,
             }
         )
 
@@ -150,3 +152,120 @@ def get_city_progress(current_user, city_id):
     """
     payload = calculate_user_city_progress(current_user.id, city_id)
     return jsonify(payload), 200
+
+@bp.get("/<int:city_id>/friends-leaderboard")
+@token_required
+def friends_leaderboard(current_user, city_id):
+    """
+    Ranking de progreso en una ciudad entre:
+    - el usuario actual
+    - y los usuarios que se siguen mutuamente con él.
+    """
+    # Asegura que la ciudad existe
+    City.query.get_or_404(city_id)
+
+    # IDs de seguidores y seguidos
+    followers_ids = {u.id for u in current_user.followers}
+    following_ids = {u.id for u in current_user.following}
+
+    # Amigos mutuos = intersección
+    mutual_ids = followers_ids & following_ids
+
+    # Opcional: incluimos al propio usuario en el ranking
+    mutual_ids.add(current_user.id)
+
+    if not mutual_ids:
+        return jsonify([]), 200
+
+    # Cargamos los usuarios de una vez
+    friends = User.query.filter(User.id.in_(mutual_ids)).all()
+    id_to_user = {u.id: u for u in friends}
+
+    results = []
+
+    for uid in mutual_ids:
+        user = id_to_user.get(uid)
+        if not user:
+            continue
+
+        progress_payload = calculate_user_city_progress(uid, city_id)
+        stats = progress_payload["stats"]
+
+        results.append(
+            {
+                "user_id": user.id,
+                "username": user.username,
+                "name": user.name,
+                "avatarUrl": user.avatar_url,
+                "progress_percentage": stats["progress_percentage"],
+                "distinct_activities_completed": stats[
+                    "distinct_activities_completed"
+                ],
+                "total_distance_km": stats["total_distance_km"],
+                "total_completions": stats["total_completions"],
+            }
+        )
+
+    # Orden: primero más progreso, luego más km
+    results.sort(
+        key=lambda x: (-x["progress_percentage"], -x["total_distance_km"])
+    )
+
+    return jsonify(results), 200
+
+
+@bp.get("/my")
+@token_required
+def get_my_cities(current_user):
+    """
+    Devuelve la lista de ciudades en las que el usuario tiene alguna actividad,
+    junto con su porcentaje de progreso en cada una.
+    Formato:
+    [
+      { "id": 1, "name": "Barcelona", "progress_percentage": 40 },
+      ...
+    ]
+    """
+    # Buscar todas las city_id donde el usuario tenga al menos una UserActivity
+    city_ids_rows = (
+        db.session.query(Activity.city_id)
+        .join(UserActivity, UserActivity.activity_id == Activity.id)
+        .filter(UserActivity.user_id == current_user.id)
+        .distinct()
+        .all()
+    )
+    city_ids = [row[0] for row in city_ids_rows]
+
+    if not city_ids:
+        return jsonify([]), 200
+
+    # Para cada ciudad, reutilizamos calculate_user_city_progress
+    result = []
+    for cid in city_ids:
+        progress_payload = calculate_user_city_progress(current_user.id, cid)
+        result.append(
+            {
+                "id": progress_payload["city"]["id"],
+                "name": progress_payload["city"]["name"],
+                "progress_percentage": progress_payload["stats"]["progress_percentage"],
+            }
+        )
+
+    # Devolvemos la lista
+    return jsonify(result), 200
+
+@bp.get("/")
+def list_cities():
+    """
+    Devuelve todas las ciudades disponibles.
+    """
+    cities = City.query.order_by(City.name.asc()).all()
+    return jsonify([
+        {
+            "id": c.id,
+            "name": c.name,
+            "country": c.country,
+            "slug": c.slug,
+        }
+        for c in cities
+    ]), 200

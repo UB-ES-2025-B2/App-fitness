@@ -27,6 +27,7 @@ def create_app(test_config=None):
     from app.routes import upload
     from .routes.search import bp as search_bp
     from app.routes import city
+    from app.routes import activity
 
     migrate.init_app(app, db)
 
@@ -40,6 +41,7 @@ def create_app(test_config=None):
     app.register_blueprint(upload.bp)
     app.register_blueprint(search_bp)
     app.register_blueprint(city.bp)
+    app.register_blueprint(activity.bp)
 
     
     #  HOME VISUAL UB FITNESS 

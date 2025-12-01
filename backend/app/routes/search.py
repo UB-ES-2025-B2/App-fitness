@@ -3,6 +3,7 @@ from sqlalchemy import func
 from .. import db
 from ..models.user_model import User
 from ..models.comunity_model import Community
+from ..models.city_model import City
 
 bp = Blueprint("search", __name__, url_prefix="/api/search")
 
@@ -12,7 +13,7 @@ def search():
     limit = min(int(request.args.get("limit", 5)), 20)
 
     if not q:
-        return jsonify({"communities": [], "users": []})
+        return jsonify({"communities": [], "users": [], "cities": []})
 
     like = f"%{q}%"
 
@@ -42,7 +43,21 @@ def search():
     )
     users_json = [{"id": u.id, "username": u.username, "name": u.name} for u in users]
 
+    # CITIES
+    cities = (
+        db.session.query(City.id, City.name, City.slug)
+        .filter(func.lower(City.name).like(func.lower(like)))
+        .order_by(City.name.asc())
+        .limit(limit)
+        .all()
+    )
+    cities_json = [
+        {"id": c.id, "name": c.name, "slug": c.slug}
+        for c in cities
+    ]
+
     return jsonify({
         "communities": communities_json,
         "users": users_json,
+        "cities": cities_json,
     })

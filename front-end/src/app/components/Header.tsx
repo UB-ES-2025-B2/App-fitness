@@ -10,7 +10,7 @@ export default function Header() {
 
   return (
     <header className="fixed top-0 left-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm">
-      <nav className="max-w-5xl mx-auto px-5 sm:px-8 py-3 flex items-center justify-between">
+      <nav className="max-w-6xl mx-auto px-5 sm:px-8 py-3 flex items-center justify-between gap-3">
         {/* Logo */}
         <Link
           href="/"
