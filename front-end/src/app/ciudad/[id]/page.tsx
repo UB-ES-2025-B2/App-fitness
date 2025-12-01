@@ -2,10 +2,28 @@
 
 import { useParams } from "next/navigation";
 import CityProgressPanel from "../../components/CityProgressPanel";
+import { useEffect, useState } from "react";
+import { authFetch } from "@/app/lib/api";
+
+type FriendRank = {
+  user_id: number;
+  username: string;
+  name?: string | null;
+  avatarUrl?: string | null;
+  progress_percentage: number;
+  distinct_activities_completed: number;
+  total_distance_km: number;
+  total_completions: number;
+};
+
 
 export default function CityPage() {
   const params = useParams();
   const cityId = Number(params?.id);
+
+  const [friends, setFriends] = useState<FriendRank[]>([]);
+  const [friendsLoading, setFriendsLoading] = useState(true);
+
 
   if (!cityId || Number.isNaN(cityId)) {
     return (
@@ -14,6 +32,53 @@ export default function CityPage() {
       </main>
     );
   }
+
+  async function loadFriends() {
+    if (!cityId) return;
+    setFriendsLoading(true);
+    try {
+      const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
+      const res = await authFetch(
+        `${base}/api/cities/${cityId}/friends-leaderboard`
+      );
+      if (!res.ok) throw new Error("No se pudo cargar el ranking");
+      const json = (await res.json()) as FriendRank[];
+      setFriends(json);
+    } catch (e) {
+      console.error(e);
+      setFriends([]);
+    } finally {
+      setFriendsLoading(false);
+    }
+  }
+
+  useEffect(() => {
+      loadFriends();
+    }, [cityId]);
+
+    useEffect(() => {
+    function handleCityProgressUpdated(e: Event) {
+      const detail = (e as CustomEvent<{ cityId: number }>).detail;
+      if (!detail) return;
+      if (detail.cityId !== cityId) return; // solo si es esta ciudad
+
+      // Volvemos a cargar el ranking
+      loadFriends();
+    }
+
+    window.addEventListener(
+      "city-progress-updated",
+      handleCityProgressUpdated as EventListener
+    );
+
+    return () => {
+      window.removeEventListener(
+        "city-progress-updated",
+        handleCityProgressUpdated as EventListener
+      );
+    };
+  }, [cityId]);
+
 
   return (
     <main className="max-w-5xl mx-auto px-4 lg:px-0 pt-24 pb-10">
@@ -44,6 +109,59 @@ export default function CityPage() {
           <span>Filtra por dificultad, tipo y estado de las actividades.</span>
         </div>
       </header>
+
+      {/* RANKING ENTRE AMIGOS */}
+      <section className="mb-6">
+        <div className="rounded-2xl bg-slate-900/70 border border-slate-700/80 p-4 shadow-md">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🏅</span>
+              <h2 className="text-sm font-semibold text-slate-100">
+                Ranking con tus amigos
+              </h2>
+            </div>
+            {friendsLoading && (
+              <span className="text-[11px] text-slate-400">Cargando…</span>
+            )}
+          </div>
+
+          {!friendsLoading && friends.length === 0 && (
+            <p className="text-xs text-slate-400">
+              Todavía no tienes amigos mutuos con progreso en esta ciudad.
+            </p>
+          )}
+
+          {!friendsLoading && friends.length > 0 && (
+            <ul className="space-y-2">
+              {friends.map((f, idx) => (
+                <li
+                  key={f.user_id}
+                  className="flex items-center justify-between rounded-xl bg-slate-800/70 px-3 py-2 text-xs"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-slate-300 w-5 text-center">
+                      {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : idx + 1}
+                    </span>
+                    <div className="flex flex-col">
+                      <span className="font-medium text-slate-100">
+                        {f.name || f.username}
+                      </span>
+                      <span className="text-[11px] text-slate-400">
+                        {f.distinct_activities_completed} actividades ·{" "}
+                        {f.total_distance_km.toFixed(1)} km
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-semibold text-emerald-300">
+                    {f.progress_percentage}%
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+
 
       {/* Panel degradado que ya muestra “Progreso en Barcelona/Girona…” */}
       <CityProgressPanel cityId={cityId} compact={false} />

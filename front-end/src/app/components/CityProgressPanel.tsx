@@ -107,6 +107,29 @@ export default function CityProgressPanel({ cityId, compact }: Props) {
     setShowComposer(true);
   }
 
+  async function reloadCityProgress() {
+  setLoading(true);
+  setError(null);
+  try {
+    const res = await authFetch(`/api/cities/${cityId}/progress`);
+    if (!res.ok) {
+      const text = await res.text();
+      throw new Error(text || "No se pudo cargar el progreso");
+    }
+    const json = (await res.json()) as CityProgressResponse;
+    setData(json);
+  } catch (e) {
+    console.error(e);
+    setError((e as Error).message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+useEffect(() => {
+  reloadCityProgress();
+}, [cityId]);
+
   // aplica filtros sobre actividades
   const filteredActivities =
     data?.activities.filter((act) => {
@@ -475,6 +498,8 @@ export default function CityProgressPanel({ cityId, compact }: Props) {
             }
 
             setReloadTick((x) => x + 1);
+            await reloadCityProgress();
+            
             setShowComposer(false);
             setActivityToComplete(null);
           }}
