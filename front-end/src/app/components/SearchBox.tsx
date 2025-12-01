@@ -6,11 +6,13 @@ import Link from "next/link";
 
 type SearchItem =
   | { kind: "community"; id: number; name: string; slug?: string }
-  | { kind: "user"; id: number; username: string; name?: string | null };
+  | { kind: "user"; id: number; username: string; name?: string | null }
+  | { kind: "city"; id: number; name: string; slug?: string };
 
 type SearchResponse = {
   communities: Array<{ id: number; name: string; slug?: string }>;
   users: Array<{ id: number; username: string; name?: string | null }>;
+  cities: Array<{ id: number; name: string; slug?: string }>;
 };
 
 export default function SearchBox() {
@@ -56,7 +58,8 @@ export default function SearchBox() {
     setOpen(false);
     setActive(-1);
     if (it.kind === "community") router.push(`/c/${it.slug ?? it.id}`);
-    else router.push(`/usuario/${it.id}`);
+    else if (it.kind === "user") router.push(`/usuario/${it.id}`);
+    else if (it.kind === "city") router.push(`/city/${it.id}`);
   };
 
   // Fetch amb debounce
@@ -87,6 +90,7 @@ export default function SearchBox() {
         const next: SearchItem[] = [
           ...data.communities.map((c) => ({ kind: "community", ...c } as SearchItem)),
           ...data.users.map((u) => ({ kind: "user", ...u } as SearchItem)),
+          ...data.cities.map((c) => ({ kind: "city", ...c } as SearchItem)),
         ];
         setItems(next);
       } catch {
@@ -152,12 +156,26 @@ export default function SearchBox() {
           <ul>
             {items.map((it, i) => {
               const isActive = i === active;
-              const icon = it.kind === "community" ? "🏘️" : "👤";
+              const icon =
+                it.kind === "community"
+                  ? "🏘️"
+                  : it.kind === "user"
+                  ? "👤"
+                  : "🌆";
+
               const label =
                 it.kind === "community"
                   ? it.name
-                  : it.name || it.username;
-              const href = it.kind === "community" ? `/c/${it.slug ?? it.id}` : `/usuario/${it.id}`;
+                  : it.kind === "user"
+                  ? it.name || it.username
+                  : it.name;
+
+              const href =
+                it.kind === "community"
+                  ? `/c/${it.slug ?? it.id}`
+                  : it.kind === "user"
+                  ? `/usuario/${it.id}`
+                  : `/ciudad/${it.id}`;
 
               return (
                 <li key={i} role="option" aria-selected={isActive}>
@@ -173,7 +191,11 @@ export default function SearchBox() {
                     <span className="text-base">{icon}</span>
                     <span className="truncate">{label}</span>
                     <span className="ml-auto text-xs text-gray-500">
-                      {it.kind === "community" ? "Comunidad" : "Usuario"}
+                      {it.kind === "community"
+                        ? "Comunidad"
+                        : it.kind === "user"
+                        ? "Usuario"
+                        : "Ciudad"}
                     </span>
                   </Link>
                 </li>
