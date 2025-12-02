@@ -1,13 +1,14 @@
 # test_integracion/pages/city_page.py
+import os
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 
 class CityPage:
-    def __init__(self, driver, base_url="http://localhost:3000"):
+    def __init__(self, driver):
         self.driver = driver
-        self.base_url = base_url
+        self.base_url = os.getenv("DEPLOY_URL", "https://app-fitness-1.onrender.com")
 
     # Por si quieres entrar directo por URL: /city/<id>
     def abrir(self, city_id: int):
