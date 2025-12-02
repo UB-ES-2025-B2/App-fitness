@@ -38,6 +38,8 @@ class ResultadosPage:
         elemento = None
         last_exc = None
 
+        time.sleep(5)  # Esperar un poco a que cargue la lista
+
         for xp in xpaths:
             try:
                 elemento = self.wait.until(
