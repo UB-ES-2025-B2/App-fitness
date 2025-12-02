@@ -1,3 +1,4 @@
+// src/app/components/CityActivitiesMap.tsx
 "use client";
 
 import { useMemo } from "react";
@@ -5,34 +6,16 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import type { LatLngExpression } from "leaflet";
 import L from "leaflet";
 
-const completedIcon = L.divIcon({
-  className: "activity-marker completed-marker",
-  html: "✅",
-  iconSize: [24, 24],
-  iconAnchor: [12, 12],
-  popupAnchor: [0, -12],
-});
-
-const pendingIcon = L.divIcon({
-  className: "activity-marker pending-marker",
-  html: "📍",
-  iconSize: [24, 24],
-  iconAnchor: [12, 12],
-  popupAnchor: [0, -12],
-});
-
-
-
 type CityActivityForMap = {
   id: number;
   name: string;
   description?: string | null;
+  type?: string | null;
   lat?: number | null;
   lng?: number | null;
   completed: boolean;
   distance_km?: number | null;
   difficulty?: string | null;
-  type?: string | null;
 };
 
 type Props = {
@@ -40,7 +23,6 @@ type Props = {
 };
 
 function getActivityIcon(act: CityActivityForMap) {
-  // Emoji según tipo
   let emoji = "📍";
   const type = act.type?.toLowerCase() ?? "";
 
@@ -48,7 +30,6 @@ function getActivityIcon(act: CityActivityForMap) {
   else if (type.includes("fút") || type.includes("fut")) emoji = "⚽";
   else if (type.includes("bás") || type.includes("bas")) emoji = "🏀";
 
-  // Si está completada → marcamos con un borde verde o un check
   const completed = act.completed;
 
   return L.divIcon({
@@ -65,10 +46,8 @@ function getActivityIcon(act: CityActivityForMap) {
   });
 }
 
-
 export default function CityActivitiesMap({ activities }: Props) {
-  // Solo actividades con coordenadas
- function hasCoordinates(
+  function hasCoordinates(
     a: CityActivityForMap
   ): a is CityActivityForMap & { lat: number; lng: number } {
     return typeof a.lat === "number" && typeof a.lng === "number";
@@ -76,6 +55,13 @@ export default function CityActivitiesMap({ activities }: Props) {
 
   const points = activities.filter(hasCoordinates);
 
+  const center: LatLngExpression = useMemo(() => {
+    if (points.length === 0) {
+      // centro por defecto (Barcelona) para evitar NaNs
+      return [41.3874, 2.1686] as LatLngExpression;
+    }
+    return [points[0].lat, points[0].lng] as LatLngExpression;
+  }, [points]);
 
   if (points.length === 0) {
     return (
@@ -84,13 +70,6 @@ export default function CityActivitiesMap({ activities }: Props) {
       </div>
     );
   }
-
-  
-
-  const center: LatLngExpression = useMemo(() => {
-    // Tomamos el primer punto como centro
-    return [points[0].lat, points[0].lng] as LatLngExpression;
-  }, [points]);
 
   return (
     <div className="rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-900/70 shadow-md">
@@ -114,12 +93,15 @@ export default function CityActivitiesMap({ activities }: Props) {
           className="h-full w-full"
         >
           <TileLayer
-            attribution='&copy; OpenStreetMap'
+            attribution="&copy; OpenStreetMap"
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-
           {points.map((act) => (
-            <Marker key={act.id} position={[act.lat, act.lng]} icon={getActivityIcon(act)}>
+            <Marker
+              key={act.id}
+              position={[act.lat, act.lng]}
+              icon={getActivityIcon(act)}
+            >
               <Popup>
                 <div className="text-xs">
                   <p className="font-semibold mb-1">{act.name}</p>
