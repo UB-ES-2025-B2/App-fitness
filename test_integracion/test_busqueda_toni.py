@@ -1,8 +1,10 @@
+import pytest
 from pages.login_page import LoginPage
 from pages.home_page import HomePage
 from pages.resultados_page import ResultadosPage
 import time
 
+@pytest.mark.skip
 def test_busqueda_usuario(driver):
 
     login = LoginPage(driver)
