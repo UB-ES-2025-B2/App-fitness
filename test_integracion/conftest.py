@@ -13,7 +13,7 @@ import traceback
 def driver():
     options = webdriver.ChromeOptions()
     options.add_argument("--start-maximized")
-    #options.add_argument("--headless=new")
+    options.add_argument("--headless=new")
 
     try:
         service = Service(ChromeDriverManager().install())
