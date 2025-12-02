@@ -1,7 +1,8 @@
+// src/app/ciudad/[id]/page.tsx
 "use client";
 
 import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { authFetch } from "@/app/lib/api";
 import CityProgressPanel from "../../components/CityProgressPanel";
 import CityActivitiesMap from "../../components/CityActivitiesMap";
@@ -17,10 +18,11 @@ type FriendRank = {
   total_completions: number;
 };
 
-type CityActivity = {
+type CityActivityForMap = {
   id: number;
   name: string;
   description?: string | null;
+  type?: string | null;
   distance_km?: number | null;
   difficulty?: string | null;
   completed: boolean;
@@ -28,13 +30,11 @@ type CityActivity = {
   lng?: number | null;
 };
 
-type CityInfo = {
-  id: number;
-  name: string;
-};
-
 type CityProgressResponse = {
-  city: CityInfo;
+  city: {
+    id: number;
+    name: string;
+  };
   stats: {
     total_activities_defined: number;
     distinct_activities_completed: number;
@@ -43,33 +43,48 @@ type CityProgressResponse = {
     total_duration_sec: number;
     progress_percentage: number;
   };
-  activities: CityActivity[];
+  activities: CityActivityForMap[];
 };
 
 export default function CityPage() {
   const params = useParams();
   const cityId = Number(params?.id);
+  const isValidCityId = Number.isFinite(cityId) && cityId > 0;
 
   const [friends, setFriends] = useState<FriendRank[]>([]);
   const [friendsLoading, setFriendsLoading] = useState(true);
 
-  const [activities, setActivities] = useState<CityActivity[]>([]);
-  const [activitiesLoading, setActivitiesLoading] = useState(true);
+  const [activities, setActivities] = useState<CityActivityForMap[]>([]);
+  const [cityName, setCityName] = useState<string>("");
 
-  if (!cityId || Number.isNaN(cityId)) {
-    return (
-      <main className="max-w-4xl mx-auto pt-24 px-4 pb-10">
-        <p className="text-red-500 text-sm">Ciudad no válida.</p>
-      </main>
-    );
-  }
+  const API_BASE =
+    process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
 
-  async function loadFriends() {
+  // -------- loaders --------
+
+  const loadCityProgress = useCallback(async () => {
+    if (!isValidCityId) return;
+
+    try {
+      const res = await authFetch(
+        `${API_BASE}/api/cities/${cityId}/progress`
+      );
+      if (!res.ok) return;
+      const json = (await res.json()) as CityProgressResponse;
+      setActivities(json.activities);
+      setCityName(json.city.name);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [API_BASE, cityId, isValidCityId]);
+
+  const loadFriends = useCallback(async () => {
+    if (!isValidCityId) return;
+
     setFriendsLoading(true);
     try {
-      const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
       const res = await authFetch(
-        `${base}/api/cities/${cityId}/friends-leaderboard`
+        `${API_BASE}/api/cities/${cityId}/friends-leaderboard`
       );
       if (!res.ok) throw new Error("No se pudo cargar el ranking");
       const json = (await res.json()) as FriendRank[];
@@ -80,40 +95,21 @@ export default function CityPage() {
     } finally {
       setFriendsLoading(false);
     }
-  }
+  }, [API_BASE, cityId, isValidCityId]);
 
-  async function loadCityProgress() {
-    setActivitiesLoading(true);
-    try {
-      const base = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
-      const res = await authFetch(`${base}/api/cities/${cityId}/progress`);
-      if (!res.ok) throw new Error("No se pudo cargar el progreso");
-      const json = (await res.json()) as CityProgressResponse;
-      setActivities(json.activities || []);
-    } catch (e) {
-      console.error(e);
-      setActivities([]);
-    } finally {
-      setActivitiesLoading(false);
-    }
-  }
-
-  // Cargar ranking + actividades al entrar o cambiar ciudad
+  // carga inicial
   useEffect(() => {
-    loadFriends();
     loadCityProgress();
-  }, [cityId]);
+    loadFriends();
+  }, [loadCityProgress, loadFriends]);
 
-  // Escuchar el evento global para refrescar el ranking (y si quieres también actividades)
+  // evento global al completar actividad
   useEffect(() => {
     function handleCityProgressUpdated(e: Event) {
       const detail = (e as CustomEvent<{ cityId: number }>).detail;
-      if (!detail) return;
-      if (detail.cityId !== cityId) return;
-
-      // Volvemos a cargar ranking y actividades
-      loadFriends();
+      if (!detail || detail.cityId !== cityId) return;
       loadCityProgress();
+      loadFriends();
     }
 
     window.addEventListener(
@@ -127,11 +123,21 @@ export default function CityPage() {
         handleCityProgressUpdated as EventListener
       );
     };
-  }, [cityId]);
+  }, [cityId, loadCityProgress, loadFriends]);
+
+  // -------- render --------
+
+  if (!isValidCityId) {
+    return (
+      <main className="max-w-4xl mx-auto pt-24 px-4 pb-10">
+        <p className="text-red-500 text-sm">Ciudad no válida.</p>
+      </main>
+    );
+  }
 
   return (
     <main className="max-w-5xl mx-auto px-4 lg:px-0 pt-24 pb-10">
-      {/* HEADER BONITO */}
+      {/* HEADER */}
       <header className="mb-8 flex flex-col gap-2">
         <div className="flex items-center gap-3">
           <div
@@ -146,7 +152,7 @@ export default function CityPage() {
                          bg-gradient-to-r from-white via-blue-100 to-sky-200
                          bg-clip-text text-transparent"
             >
-              Progreso por ciudad
+              Progreso en {cityName || "la ciudad"}
             </h1>
             <p className="text-xs md:text-sm text-slate-300 mt-1">
               Revisa tu avance en las actividades de esta ciudad.
@@ -165,7 +171,7 @@ export default function CityPage() {
         </div>
       </header>
 
-      {/* RANKING ENTRE AMIGOS */}
+      {/* RANKING AMIGOS */}
       <section className="mb-6">
         <div className="rounded-2xl bg-slate-900/70 border border-slate-700/80 p-4 shadow-md">
           <div className="flex items-center justify-between mb-3">
@@ -195,7 +201,13 @@ export default function CityPage() {
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-sm font-semibold text-slate-300 w-5 text-center">
-                      {idx === 0 ? "🥇" : idx === 1 ? "🥈" : idx === 2 ? "🥉" : idx + 1}
+                      {idx === 0
+                        ? "🥇"
+                        : idx === 1
+                        ? "🥈"
+                        : idx === 2
+                        ? "🥉"
+                        : idx + 1}
                     </span>
                     <div className="flex flex-col">
                       <span className="font-medium text-slate-100">
@@ -217,18 +229,12 @@ export default function CityPage() {
         </div>
       </section>
 
-      {/* MAPA DE ACTIVIDADES */}
+      {/* MAPA */}
       <section className="mb-6">
-        {activitiesLoading ? (
-          <div className="rounded-2xl bg-slate-900/70 border border-slate-700/80 p-4 text-xs text-slate-300">
-            Cargando mapa de actividades…
-          </div>
-        ) : (
-          <CityActivitiesMap activities={activities} />
-        )}
+        <CityActivitiesMap activities={activities} />
       </section>
 
-      {/* Panel degradado que ya muestra “Progreso en X” */}
+      {/* PANEL DEGRADADO */}
       <CityProgressPanel cityId={cityId} compact={false} />
     </main>
   );
