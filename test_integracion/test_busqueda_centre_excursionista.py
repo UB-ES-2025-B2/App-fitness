@@ -19,7 +19,8 @@ def test_busqueda_usuario(driver):
     home.buscar("Centre Excursionista Puigcastellar")
 
     # 4. Seleccionar resultado específico
-    resultados.abrir_resultado("Centre Excursionista Puigcastellar")
+    resultados.abrir_resultado("Centre Excursionista Puigcastellar", href_contains="/c/1",)
+    time.sleep(3)
 
     # 5. Aserciones si quieres
     assert "c/1" in driver.current_url.lower()
