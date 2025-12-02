@@ -13,12 +13,11 @@ def test_busqueda_usuario(driver):
     time.sleep(1)
 
     login.login("toni@example.com", "app-fitness1")
-    time.sleep(5)
+    time.sleep(2)
 
 
     home.buscar("Toni")
 
-    resultados.abrir_resultado("Toni", href_contains="/usuario/1")
-    time.sleep(3)
+    resultados.abrir_resultado("Toni")
 
     assert "usuario/1" in driver.current_url.lower()
