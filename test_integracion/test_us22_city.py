@@ -9,7 +9,6 @@ from pages.login_page import LoginPage
 from pages.home_page import HomePage
 from pages.city_page import CityPage
 
-@pytest.mark.skip
 @pytest.mark.usefixtures("driver")
 def test_buscar_ciudad_y_abrir_pagina(driver):
     """
@@ -45,7 +44,7 @@ def test_buscar_ciudad_y_abrir_pagina(driver):
         )
     )
     sugerencia.click()
-
+    time.sleep(5)
     # 4. Comprobar que estamos en la página de ciudad
     city_page.esperar_cargada()
     assert "Progreso en Barcelona" in city_page.titulo()
@@ -54,7 +53,6 @@ def test_buscar_ciudad_y_abrir_pagina(driver):
     assert city_page.hay_mapa()
     assert city_page.num_markers() >= 1
 
-@pytest.mark.skip
 @pytest.mark.usefixtures("driver")
 def test_filtro_estado_completadas(driver):
     """
@@ -92,7 +90,7 @@ def test_filtro_estado_completadas(driver):
         )
     )
     sugerencia.click()
-
+    time.sleep(5)
     city_page.esperar_cargada()
     time.sleep(1)
 
@@ -104,10 +102,11 @@ def test_filtro_estado_completadas(driver):
 
     # Aplicar filtro Estado -> 'Completadas'
     city_page.seleccionar_filtro_estado("Completadas")
-    time.sleep(1)
+    time.sleep(5)
 
     estados_filtrados = city_page.estados_actividades_visibles()
     assert estados_filtrados, "No se muestran actividades tras aplicar el filtro."
+    time.sleep(5)
 
     # Todas las que se ven deberían ser 'Completada'
     assert all("Completada" in e for e in estados_filtrados)
