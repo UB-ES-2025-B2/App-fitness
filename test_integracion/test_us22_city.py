@@ -58,9 +58,10 @@ def test_filtro_estado_completadas(driver):
     """
     US22 – Filtro en página de ciudad:
     - Entrar a la ciudad de Barcelona
-    - Ver que hay al menos una actividad pendiente
+    - Ver actividades
     - Aplicar filtro 'Completadas'
-    - Ver que solo se muestran actividades completadas
+    - Si hay completadas: sólo se muestran completadas
+    - Si no hay completadas: la lista queda vacía (también es correcto)
     """
     login = LoginPage(driver)
     home = HomePage(driver)
@@ -72,13 +73,8 @@ def test_filtro_estado_completadas(driver):
     login.login("toni@example.com", "app-fitness1")
     time.sleep(5)
 
-    # ir a Barcelona desde buscador (reutilizamos lógica sencilla)
+    # Ir a Barcelona desde buscador
     home.buscar("Barcelona")
-
-    # clicamos la sugerencia de Barcelona (cualquier tipo)
-    from selenium.webdriver.common.by import By
-    from selenium.webdriver.support.ui import WebDriverWait
-    from selenium.webdriver.support import expected_conditions as EC
 
     sugerencia = WebDriverWait(driver, 10).until(
         EC.element_to_be_clickable(
@@ -94,19 +90,30 @@ def test_filtro_estado_completadas(driver):
     city_page.esperar_cargada()
     time.sleep(1)
 
-    # Estados con todos los filtros por defecto
+    # Estados iniciales
     estados_todos = city_page.estados_actividades_visibles()
-    # Si no hubiera pendientes, el test no tendría sentido -> skip
-    if not any("Pendiente" in e for e in estados_todos):
-        pytest.skip("No hay actividades pendientes en Barcelona para probar el filtro.")
+    if not estados_todos:
+        pytest.skip("No hay actividades en Barcelona para probar el filtro.")
+
+    hay_pendientes = any("Pendiente" in e for e in estados_todos)
+    hay_completadas = any("Completada" in e for e in estados_todos)
 
     # Aplicar filtro Estado -> 'Completadas'
     city_page.seleccionar_filtro_estado("Completadas")
-    time.sleep(5)
+    time.sleep(3)
 
     estados_filtrados = city_page.estados_actividades_visibles()
-    assert estados_filtrados, "No se muestran actividades tras aplicar el filtro."
-    time.sleep(5)
 
-    # Todas las que se ven deberían ser 'Completada'
-    assert all("Completada" in e for e in estados_filtrados)
+    if not hay_completadas:
+        # Caso 1: el usuario no tiene ninguna completada.
+        # El comportamiento correcto es que el filtro deje la lista vacía.
+        assert (
+            not estados_filtrados
+        ), "Se muestran actividades aunque el usuario no tiene ninguna completada."
+        return
+
+    # Caso 2: sí hay completadas → deben aparecer sólo completadas
+    assert estados_filtrados, "No se muestran actividades tras aplicar el filtro."
+    assert all(
+        "Completada" in e for e in estados_filtrados
+    ), "Hay actividades no completadas tras aplicar el filtro 'Completadas'."
