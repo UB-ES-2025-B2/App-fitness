@@ -41,6 +41,13 @@ class User(db.Model):
         lazy="dynamic",
     )
 
+    user_activities = db.relationship(
+        "UserActivity",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="dynamic",
+    )
+
     def set_password(self, password):
         self.password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
