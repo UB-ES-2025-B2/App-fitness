@@ -16,5 +16,6 @@ from .post_like_model import PostLike
 from .email_verification import EmailVerification
 from .comunity_model import Community
 from .event_model import Event
+from .repost_model import Repost
 
 __all__ = ["User", "Post", "PostLike", "follow", "EmailVerification"]

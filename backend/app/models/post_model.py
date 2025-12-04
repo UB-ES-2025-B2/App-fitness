@@ -11,6 +11,7 @@ class Post(db.Model):
     text = db.Column(db.Text, nullable=False)
     image_url = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    repost_count = db.Column(db.Integer, default=0)
     liked_by = db.relationship(
         "User",
         secondary="post_like",
