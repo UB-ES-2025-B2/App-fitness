@@ -1,4 +1,3 @@
-// src/app/perfil/page.tsx
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -22,7 +21,7 @@ type ApiUser = {
   avatar_url?: string;
   bio?: string;
   ocultar_info?: boolean;
-  preferences?: Array<"Fútbol" | "Básquet" | "Montaña"> | string[]; // por si back devuelve otros ids
+  preferences?: Array<"Fútbol" | "Básquet" | "Montaña"> | string[];
 };
 
 type UserSummary = {
@@ -54,7 +53,7 @@ async function updateMe(patch: Partial<{
     const text = await res.text();
     throw new Error(text || "No se pudo guardar el perfil");
   }
-  return res.json(); // { message, user: {...} }
+  return res.json();
 }
 
 type BackendPost = {
@@ -70,26 +69,94 @@ type BackendPost = {
     username: string;
     name?: string | null;
   } | null;
+
+  type?: 'original' | 'repost'; 
+  comment_text?: string | null;
+  reposted_by?: { id: number; username: string; name?: string | null } | null;
+  original_content?: BackendPost;
 };
 
-type ApiPost = {
+type PostBase = {
   id: number;
+  topic: string;
   text: string;
-  image?: string | null;
-  topic?: string;
-  date: string;
+  image?: string;
+  likeCount?: number;
+  likedByMe?: boolean;
+  date?: string;
+  repostCount?: number;
+};
+
+type OriginalContent = PostBase & {
+  user: string;
+  userId?: number;
+  type?: 'original';
+};
+
+type ApiPost = OriginalContent & {
+  type: 'original' | 'repost';
+  repostedBy?: string;
+  repostedById?: number;
+  repostComment?: string;
+  originalPost?: OriginalContent; 
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
 
 function normalizeUserPost(p: BackendPost): ApiPost {
-  return {
-    id: p.id,
-    text: p.text,
-    topic: p.topic ?? "General",
-    image: p.image ?? p.image_url ?? undefined,
-    date: p.date ?? p.created_at ?? new Date().toISOString(),
+  const isRepost = p.type === 'repost';
+  let sourcePost = p;
+  
+  if (isRepost && p.original_content) {
+    sourcePost = p.original_content;
+  }
+
+  const userName =
+    typeof sourcePost.user === "string"
+      ? sourcePost.user
+      : sourcePost.user?.name || sourcePost.user?.username || "Usuari";
+
+  const userId =
+    typeof sourcePost.user === "object" && sourcePost.user?.id
+      ? sourcePost.user.id
+      : undefined;
+
+  const bestDate =
+    sourcePost.date ||
+    sourcePost.created_at ||
+    sourcePost.timestamp ||
+    new Date().toISOString(); 
+    
+  const originalData: OriginalContent = {
+    id: sourcePost.id,
+    text: sourcePost.text,
+    topic: sourcePost.topic ?? "General",
+    image: sourcePost.image ?? sourcePost.image_url ?? undefined,
+    user: userName,
+    userId,
+    likeCount: sourcePost.likes ?? 0,
+    likedByMe: sourcePost.likedByMe ?? sourcePost.liked ?? false,
+    date: bestDate,
+    repostCount: sourcePost.reposts ?? 0,
   };
+
+  if (isRepost) {
+    const reposterName = p.reposted_by?.name || p.reposted_by?.username || "Tú";
+    const reposterId = p.reposted_by?.id;
+    const repostComment = p.comment_text ?? undefined;
+    
+    return {
+      ...originalData,
+      type: 'repost',
+      repostedBy: reposterName,
+      repostedById: reposterId,
+      repostComment: repostComment,
+      originalPost: originalData,
+      date: p.created_at || p.date || originalData.date, 
+    } as ApiPost;
+  }
+
+  return { ...originalData, type: 'original' } as ApiPost;
 }
 
 async function fetchUserPosts(userId: number): Promise<ApiPost[]> {
@@ -105,11 +172,11 @@ type Profile = {
   apellido1: string;
   apellido2: string;
   username: string;
-  fechaNacimiento: string; // ISO yyyy-mm-dd
+  fechaNacimiento: string;
   lugarNacimiento: string;
   direccion: string;
   temas: Array<"Fútbol" | "Básquet" | "Montaña">;
-  ocultarInfo: boolean; // true = ocultar (activada por defecto)
+  ocultarInfo: boolean;
   avatarUrl?: string;
 };
 
@@ -130,17 +197,14 @@ type TopicFilter = "ALL" | "Fútbol" | "Básquet" | "Montaña";
 type DateFilter = "ALL" | "DAY" | "MONTH" | "YEAR";
 type SortOrder = "DESC" | "ASC";
 
-
 export default function ProfilePage() {
   const router = useRouter();
   const [profile, setProfile] = useState<Profile>(INITIAL_PROFILE);
   const [loading, setLoading] = useState(true);
 
-  // Listas de seguidores/seguidos
   const [followersList, setFollowersList] = useState<UserSummary[]>([]);
   const [followingList, setFollowingList] = useState<UserSummary[]>([]);
   
-  // Modal
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState<"followers" | "following">("followers");
 
@@ -233,7 +297,6 @@ export default function ProfilePage() {
 
 
   useEffect(() => {
-    // Escuchar nuevos posts creados en cualquier parte (composer)
     const onNewPost = (e: Event) => {
       const detail = (e as CustomEvent<{
         id: number;
@@ -242,15 +305,14 @@ export default function ProfilePage() {
         image?: string;
       }>).detail;
 
-      // Lo adaptamos a tu ApiPost
       const apiPost: ApiPost = {
         id: detail.id,
         text: detail.text,
         topic: detail.topic,
         image: detail.image,
-        // No nos llega la fecha del evento normalizado, usamos "ahora"
         date: new Date().toISOString(),
-      };
+        type: 'original',
+      } as ApiPost;
 
       setPosts((prev) => [apiPost, ...prev]);
     };
@@ -260,10 +322,7 @@ export default function ProfilePage() {
   }, []);
 
 
-
-
   useEffect(() => {
-    // si no hay tokens -> a /login
     if (!getTokens()) {
       router.replace("/login");
       return;
@@ -276,10 +335,9 @@ export default function ProfilePage() {
         return;
       }
 
-      // Mapea lo que venga del back a tu shape local
       setProfile({
         nombre: me.name ?? "",
-        apellido1: "",           // aún no viene del back
+        apellido1: "",
         apellido2: "",
         username: me.username ?? "",
         fechaNacimiento: "",
@@ -294,7 +352,6 @@ export default function ProfilePage() {
         ocultarInfo: typeof me.ocultar_info === "boolean" ? me.ocultar_info : true,
       });
 
-      // Cargar seguidores, seguidos y posts
       try {
         const [followersRes, followingRes] = await Promise.all([
           authFetch(`/api/users/${me.id}/followers`),
@@ -311,7 +368,6 @@ export default function ProfilePage() {
           setFollowingList(followingData);
         }
 
-        // Cargar posts usando la función normalizada
         setPostsLoading(true);
         try {
           const userPosts = await fetchUserPosts(me.id);
@@ -344,21 +400,17 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 lg:px-0 py-6">
-      {/* Header perfil */}
       <section className="bg-white rounded-2xl shadow-md p-5 mb-6 relative">
         
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            {/* AVATAR CLICABLE */}
             <ProfileAvatar
               value={profile.avatarUrl}
               onChange={async (url) => {
-                // Optimista en UI
                 setProfile((p) => ({ ...p, avatarUrl: url }));
                 try {
                   await updateMe({ avatar_url: url || null });
                 } catch (e) {
-                  // Revertir si falla
                   setProfile((p) => ({ ...p, avatarUrl: undefined }));
                   alert((e as Error).message);
                 }
@@ -366,7 +418,7 @@ export default function ProfilePage() {
             />
 
             <div className="flex items-center gap-2">
-              <LogoutButton /> {/* Botón de cerrar sesión */}
+              <LogoutButton />
             </div>
 
             <div>
@@ -377,11 +429,9 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Botón de configuración */}
           <SettingsDropdown profile={profile} onSave={setProfile} />
         </div>
 
-        {/* Stats */}
         <div className="mt-4 grid grid-cols-3 divide-x rounded-lg bg-gray-50">
           <Stat label="Publicaciones" value={posts.length} />
           <div 
@@ -405,7 +455,6 @@ export default function ProfilePage() {
         </div>
       </section>
 
-      {/* Contenido de pestañas */}
       <section>
         <div className="space-y-4">
           {!postsLoading && posts.length > 0 && (
@@ -517,7 +566,7 @@ function SettingsDropdown({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => setForm(profile), [profile]); // si fuera cambia desde fuera, sincroniza
+  useEffect(() => setForm(profile), [profile]);
 
   const toggleTema = (tema: "Fútbol" | "Básquet" | "Montaña") => {
     setForm((f) => {
@@ -530,16 +579,12 @@ function SettingsDropdown({
     setSaving(true);
     setError(null);
     try {
-      // Mapeo de tu UI -> API
       await updateMe({
-        name: form.nombre,                          // <-- name
-        username: form.username,                    // <-- username
-        preferences: form.temas,                    // <-- preferences (array de strings)
-        ocultar_info: form.ocultarInfo,             // <-- boolean
-        // avatar_url ya lo guardamos al vuelo arriba
-        // avatar_url: form.avatarUrl || null,
+        name: form.nombre,
+        username: form.username,
+        preferences: form.temas,
+        ocultar_info: form.ocultarInfo,
       });
-      // Refleja en UI lo guardado
       onSave(form);
       setOpen(false);
     } catch (e) {
@@ -573,28 +618,22 @@ function SettingsDropdown({
         >
           <h4 className="text-sm font-semibold text-gray-700 mb-3">Configuración de perfil</h4>
 
-          {/* Orden lógico de campos */}
           <div className="grid grid-cols-1 gap-3">
-            {/* Nombre y apellidos */}
             <div className="grid grid-cols-3 gap-2">
               <Input label="Nombre" value={form.nombre} onChange={(v) => setForm({ ...form, nombre: v })} />
               <Input label="Apellido 1" value={form.apellido1} onChange={(v) => setForm({ ...form, apellido1: v })} />
               <Input label="Apellido 2" value={form.apellido2} onChange={(v) => setForm({ ...form, apellido2: v })} />
             </div>
 
-            {/* Username */}
             <Input label="Username" value={form.username} onChange={(v) => setForm({ ...form, username: v })} prefix="@" />
 
-            {/* Fecha y lugar de nacimiento */}
             <div className="grid grid-cols-2 gap-2">
               <Input type="date" label="Fecha de nacimiento" value={form.fechaNacimiento} onChange={(v) => setForm({ ...form, fechaNacimiento: v })} />
               <Input label="Lugar de nacimiento" value={form.lugarNacimiento} onChange={(v) => setForm({ ...form, lugarNacimiento: v })} />
             </div>
 
-            {/* Dirección postal */}
             <Input label="Dirección" value={form.direccion} onChange={(v) => setForm({ ...form, direccion: v })} />
 
-            {/* Temáticas (checklist) */}
             <div>
               <p className="text-xs font-medium text-gray-600 mb-1">Temáticas</p>
               <div className="flex flex-wrap gap-2">
@@ -612,7 +651,6 @@ function SettingsDropdown({
               </div>
             </div>
 
-            {/* Privacidad */}
             <label className="flex items-start gap-2 rounded-lg bg-gray-50 p-3">
               <input
                 type="checkbox"
@@ -627,7 +665,6 @@ function SettingsDropdown({
             </label>
           </div>
 
-          {/* Acciones */}
           <div className="mt-4 flex justify-end gap-2">
             <button
               onClick={() => setOpen(false)}
@@ -722,7 +759,6 @@ function PostFilters({
       <div className="flex items-center justify-between gap-2">
       </div>
 
-      {/* Temáticas */}
       <div className="flex flex-wrap gap-2">
         {topicButtons.map((btn) => {
           const active = topicFilter === btn.value;
@@ -744,7 +780,6 @@ function PostFilters({
         })}
       </div>
 
-      {/* Rango de fechas */}
       <div className="flex flex-wrap gap-2">
         {dateButtons.map((btn) => {
           const active = dateFilter === btn.value;
@@ -766,7 +801,6 @@ function PostFilters({
         })}
       </div>
 
-      {/* Orden */}
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs text-gray-500">Ordenar por</span>
         <div className="inline-flex rounded-full bg-gray-100 p-1">
@@ -799,4 +833,3 @@ function PostFilters({
     </div>
   );
 }
-
