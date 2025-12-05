@@ -33,6 +33,7 @@ class Post(db.Model):
                 "name": self.author.name,
             },
             "likes": self.liked_by.count(),
+            "reposts":self.repost_count,
         "likedByMe": (
             self.liked_by.filter_by(id=current_user_id).count() > 0
             if current_user_id else False
