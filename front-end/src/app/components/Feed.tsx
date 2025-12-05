@@ -22,7 +22,7 @@ type PostBase = {
 type OriginalContent = PostBase & {
   user: string;
   userId?: number;
-  type?: 'original';
+  type?: 'original' | 'repost';
 };
 
 type Post = OriginalContent & {
@@ -336,7 +336,7 @@ export default function Feed() {
 
             {post.type === 'repost' && post.repostComment && (
                 <p className="mb-4 italic text-gray-600 dark:text-gray-400 border-l-4 border-blue-500 pl-3">
-                    "{post.repostComment}"
+                    `{post.repostComment}`
                 </p>
             )}
 

@@ -70,7 +70,13 @@ type BackendPost = {
     name?: string | null;
   } | null;
 
+  timestamp?: string | null;
+
   type?: 'original' | 'repost'; 
+  likes?: number;
+  liked?: boolean;
+  likedByMe?: boolean;
+  reposts?: number; 
   comment_text?: string | null;
   reposted_by?: { id: number; username: string; name?: string | null } | null;
   original_content?: BackendPost;
@@ -90,7 +96,6 @@ type PostBase = {
 type OriginalContent = PostBase & {
   user: string;
   userId?: number;
-  type?: 'original';
 };
 
 type ApiPost = OriginalContent & {
@@ -137,7 +142,7 @@ function normalizeUserPost(p: BackendPost): ApiPost {
     likeCount: sourcePost.likes ?? 0,
     likedByMe: sourcePost.likedByMe ?? sourcePost.liked ?? false,
     date: bestDate,
-    repostCount: sourcePost.reposts ?? 0,
+    repostCount: (sourcePost.reposts as number | undefined) ?? 0,
   };
 
   if (isRepost) {
@@ -299,11 +304,11 @@ export default function ProfilePage() {
     .filter((p) => {
       const topic = p.topic || "";
       if (topicFilter !== "ALL" && topic !== topicFilter) return false;
-      return passesDateFilter(p.date);
+      return passesDateFilter(p.date ?? "");
     })
     .sort((a, b) => {
-      const da = new Date(a.date).getTime();
-      const db = new Date(b.date).getTime();
+      const da = new Date(a.date?? "").getTime();
+      const db = new Date(b.date?? "").getTime();
       if (isNaN(da) || isNaN(db)) return 0;
       return sortOrder === "DESC" ? db - da : da - db;
     });
@@ -543,7 +548,7 @@ export default function ProfilePage() {
                     
                     {p.type === 'repost' && p.repostComment && (
                         <p className="mb-4 italic text-gray-600 border-l-4 border-blue-500 pl-3">
-                            "{p.repostComment}"
+                            `{p.repostComment}`
                         </p>
                     )}
                     
@@ -553,7 +558,7 @@ export default function ProfilePage() {
                       </h3>
                       <span className="text-xs text-gray-500">
                         {p.type === 'original' ? p.topic ?? "General" : p.originalPost?.topic ?? "General"} ·{" "}
-                        {new Date(p.date).toLocaleDateString("es-ES", {
+                        {new Date(p.date?? "").toLocaleDateString("es-ES", {
                           day: "2-digit",
                           month: "2-digit",
                           year: "numeric",

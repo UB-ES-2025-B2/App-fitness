@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import UserListModal from "../../components/UserListModal";
+import Link from "next/link";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
 
@@ -47,7 +48,6 @@ type PostBase = {
 type OriginalContent = PostBase & {
   user: string;
   userId?: number;
-  type?: 'original';
 };
 
 type Item = OriginalContent & {
@@ -174,7 +174,7 @@ function PostContent({
     post,
     handleRepost
 }: {
-    post: OriginalContent;
+    post: Item;
     handleRepost: (id: number) => void;
 }) {
     return (
@@ -594,7 +594,7 @@ export default function UserProfilePage() {
                 {post.type === 'repost' && post.repostComment && (
                     <div className="p-4 border-b">
                         <p className="italic text-gray-600 border-l-4 border-blue-500 pl-3">
-                            "{post.repostComment}"
+                            `{post.repostComment}`
                         </p>
                     </div>
                 )}
@@ -622,7 +622,7 @@ export default function UserProfilePage() {
                         {post.type === 'original' ? user.name : post.originalPost?.user}
                     </p>
                     <p className="text-xs text-gray-500">
-                      {new Date(post.type === 'original' ? post.date : post.originalPost?.date || post.date).toLocaleDateString("es-ES", {
+                      {new Date((post.type === 'original' ? post.date : post.originalPost?.date || post.date) ?? "").toLocaleDateString("es-ES", {
                         day: "numeric",
                         month: "short",
                         year: "numeric",
