@@ -583,7 +583,7 @@ export default function UserProfilePage() {
                         </svg>
                         
                         <p className="text-sm text-gray-600">
-                            Recompartit per{' '}
+                            Recompartido por{' '}
                             <span className="font-semibold text-gray-800">
                                 {post.repostedBy}
                             </span>

@@ -323,7 +323,7 @@ export default function Feed() {
                     </svg>
 
                     <p>
-                        Recompartit per{' '}
+                        Recompartido por{' '}
                         <Link
                             href={`/usuario/${post.repostedById}`}
                             className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
@@ -464,7 +464,7 @@ function TopicDropdown({
         onClick={() => setOpen((v) => !v)}
         className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700/60 shadow-sm hover:bg-blue-50 dark:hover:bg-slate-600 text-sm transition-all"
       >
-        <span>Temàtica:</span>
+        <span>Temática:</span>
         <span className="font-medium text-blue-700 dark:text-blue-400">{topic}</span>
         <svg
           width="16"
