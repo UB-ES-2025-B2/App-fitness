@@ -215,10 +215,10 @@ export default function ProfilePage() {
   const [dateFilter, setDateFilter] = useState<DateFilter>("ALL");
   const [sortOrder, setSortOrder] = useState<SortOrder>("DESC");
 
-  const [postToDelete, setPostToDelete] = useState<number | null>(null);
+  const [postToDelete, setPostToDelete] = useState<{ id: number; type: 'original' | 'repost'; originalId?: number } | null>(null);
 
-  const askDeletePost = (id: number) => {
-    setPostToDelete(id);
+  const askDeletePost = (id: number, type: 'original' | 'repost', originalId?: number) => {
+    setPostToDelete({ id, type, originalId });
   };
 
   const cancelDeletePost = () => {
@@ -229,7 +229,17 @@ export default function ProfilePage() {
     if (postToDelete === null) return;
 
     try {
-      const res = await authFetch(`/api/posts/${postToDelete}`, {
+      let endpoint = '';
+      let idToDelete = postToDelete.id;
+
+      if (postToDelete.type === 'repost' && postToDelete.originalId) {
+          endpoint = `${API_BASE}/api/posts/${postToDelete.originalId}/repost`;
+          idToDelete = postToDelete.originalId;
+      } else {
+          endpoint = `${API_BASE}/api/posts/${postToDelete.id}`;
+      }
+
+      const res = await authFetch(endpoint, {
         method: "DELETE",
       });
 
@@ -240,8 +250,12 @@ export default function ProfilePage() {
         return;
       }
 
-      // Si el back responde OK, actualizamos la lista en el front
-      setPosts((prev) => prev.filter((p) => p.id !== postToDelete));
+      setPosts((prev) => prev.filter((p) => {
+        if (p.type === 'original' && p.id === idToDelete) return false;
+        if (p.type === 'repost' && p.originalPost?.id === idToDelete) return false;
+        
+        return true;
+      }));
       setPostToDelete(null);
     } catch (err) {
       console.error("Error de red al eliminar el post:", err);
@@ -249,7 +263,7 @@ export default function ProfilePage() {
     }
   };
 
-  // Posts filtrados + ordenados
+
   const visiblePosts = (() => {
   if (!posts || posts.length === 0) return [];
 
@@ -479,60 +493,82 @@ export default function ProfilePage() {
           {!postsLoading && visiblePosts.length > 0 && (
             <>
               {visiblePosts.map((p) => (
-                <article key={p.id} className="bg-white rounded-2xl shadow-md p-4 relative">
+                <article 
+                  key={p.id + p.type + (p.repostedById || 0)} 
+                  className="bg-white rounded-2xl shadow-md p-4 relative"
+                >
                     <button
                       type="button"
-                      onClick={() => askDeletePost(p.id)}
+                      onClick={() => askDeletePost(p.id, p.type, p.originalPost?.id)}
                       className="absolute -top-3 right-3 text-xs px-2 py-1 rounded-full bg-red-600 text-white hover:bg-red-700 shadow"
                     >
                       Eliminar
                     </button>
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-medium">
-                      {profile.nombre || profile.username || "Tú"}
-                    </h3>
-                    <span className="text-xs text-gray-500">
-                      {p.topic ?? "General"} ·{" "}
-                      {new Date(p.date).toLocaleDateString("es-ES", {
-                        day: "2-digit",
-                        month: "2-digit",
-                        year: "numeric",
-                      })}
-                    </span>
-                  </div>
-
-                  {postToDelete === p.id && (
-                    <div className="mt-3 p-3 border border-red-200 bg-red-50 rounded-xl text-sm text-red-800">
-                      <p className="mb-2 font-semibold">
-                        ¿Seguro que quieres eliminar esta publicación?
-                      </p>
-                      <div className="flex justify-end gap-2">
-                        <button
-                          type="button"
-                          onClick={cancelDeletePost}
-                          className="px-3 py-1 rounded-lg text-xs bg-white border border-red-200 hover:bg-red-100"
-                        >
-                          Cancelar
-                        </button>
-                        <button
-                          type="button"
-                          onClick={confirmDeletePost}
-                          className="px-3 py-1 rounded-lg text-xs bg-red-600 text-white hover:bg-red-700"
-                        >
-                          Confirmar
-                        </button>
-                      </div>
+                    
+                    {postToDelete && postToDelete.id === p.id && (
+                        <div className="mt-3 p-3 border border-red-200 bg-red-50 rounded-xl text-sm text-red-800">
+                            <p className="mb-2 font-semibold">
+                                ¿Seguro que quieres eliminar esta publicación?
+                            </p>
+                            <div className="flex justify-end gap-2">
+                                <button
+                                    type="button"
+                                    onClick={cancelDeletePost}
+                                    className="px-3 py-1 rounded-lg text-xs bg-white border border-red-200 hover:bg-red-100"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={confirmDeletePost}
+                                    className="px-3 py-1 rounded-lg text-xs bg-red-600 text-white hover:bg-red-700"
+                                >
+                                    Confirmar
+                                </button>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {p.type === 'repost' && (
+                        <div className="mb-2 flex items-center gap-2 text-sm text-gray-500">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-green-500"><path fillRule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.355 4.5 4.5 0 0 0 4.5 0 7.5 7.5 0 0 1-12.548 3.355Z" clipRule="evenodd" /><path d="M18.75 12a.75.75 0 0 0 0 1.5h.008a.75.75 0 0 0 0-1.5H18.75Z" /><path fillRule="evenodd" d="M4.5 12.75a7.5 7.5 0 0 1 12.548-3.355 4.5 4.5 0 0 0 4.5 0 7.5 7.5 0 0 1-12.548 3.355ZM18.75 15a.75.75 0 0 0 0 1.5h.008a.75.75 0 0 0 0-1.5H18.75Z" clipRule="evenodd" /></svg>
+                            <p>
+                                Recompartido por{' '}
+                                <span className="font-semibold text-gray-800">
+                                    {p.repostedBy}
+                                </span>
+                            </p>
+                        </div>
+                    )}
+                    
+                    {p.type === 'repost' && p.repostComment && (
+                        <p className="mb-4 italic text-gray-600 border-l-4 border-blue-500 pl-3">
+                            "{p.repostComment}"
+                        </p>
+                    )}
+                    
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-medium">
+                        {p.type === 'original' ? (profile.nombre || profile.username || "Tú") : (p.originalPost?.user || 'Usuario')}
+                      </h3>
+                      <span className="text-xs text-gray-500">
+                        {p.type === 'original' ? p.topic ?? "General" : p.originalPost?.topic ?? "General"} ·{" "}
+                        {new Date(p.date).toLocaleDateString("es-ES", {
+                          day: "2-digit",
+                          month: "2-digit",
+                          year: "numeric",
+                        })}
+                      </span>
                     </div>
-                  )}
 
-                  <p className="mt-2 text-gray-700">{p.text}</p>
-                  {p.image && (
-                    <img
-                      src={p.image}
-                      alt={p.topic ?? "Post"}
-                      className="mt-3 rounded-xl w-full h-56 object-cover"
-                    />
-                  )}
+                    <p className="mt-2 text-gray-700">{p.type === 'original' ? p.text : p.originalPost?.text}</p>
+                    {(p.type === 'original' ? p.image : p.originalPost?.image) && (
+                      <img
+                        src={p.type === 'original' ? p.image : p.originalPost?.image || ''}
+                        alt={p.topic ?? "Post"}
+                        className="mt-3 rounded-xl w-full h-56 object-cover"
+                      />
+                    )}
                 </article>
               ))}
               <p className="text-center text-gray-400 text-sm mt-4">
