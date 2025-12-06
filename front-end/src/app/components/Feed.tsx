@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Topic, useTopic } from "./TopicContext";
 import { motion } from "framer-motion";
+import Image from 'next/image';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 const TOPICS: Topic[] = ["Todos", "Fútbol", "Básquet", "Montaña"];
@@ -244,7 +245,7 @@ export default function Feed() {
 
             {post.image && (
               <div className="mt-3 overflow-hidden rounded-xl">
-                <img
+                <Image
                   src={post.image}
                   alt={post.topic}
                   className="w-full h-64 object-cover transform hover:scale-[1.02] transition-transform duration-500"

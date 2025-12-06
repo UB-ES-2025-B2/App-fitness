@@ -3,8 +3,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
-
 import ProfileAvatar from "../components/ProfileAvatar";
 import UserListModal from "../components/UserListModal";
 
@@ -478,7 +476,7 @@ export default function ProfilePage() {
 
                   <p className="mt-2 text-gray-700">{p.text}</p>
                   {p.image && (
-                    <img
+                    <Image
                       src={p.image}
                       alt={p.topic ?? "Post"}
                       className="mt-3 rounded-xl w-full h-56 object-cover"

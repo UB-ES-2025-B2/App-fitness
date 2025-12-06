@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import Image from 'next/image';
 
 export default function ProfileAvatar({
     value,
@@ -56,7 +57,7 @@ export default function ProfileAvatar({
         >
             {value ? (
             // Imagen actual
-            <img src={value} alt="Foto de perfil" className="w-full h-full object-cover" />
+            <Image src={value} alt="Foto de perfil" className="w-full h-full object-cover" />
             ) : (
             // Fallback con inicial si no hay imagen (la letra la pones fuera si quieres)
             <span>👤</span>
