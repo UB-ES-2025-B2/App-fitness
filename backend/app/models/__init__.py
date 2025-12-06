@@ -19,6 +19,5 @@ from .event_model import Event
 from .city_model import City
 from .activity_model import Activity
 from .user_activity_model import UserActivity
-from .report_model import Report
 
 __all__ = ["User", "Post", "PostLike", "follow", "EmailVerification", "City", "Activity", "UserActivity",]
