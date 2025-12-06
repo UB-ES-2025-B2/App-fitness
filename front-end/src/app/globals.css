@@ -34,6 +34,17 @@
   filter: drop-shadow(0 0 6px rgba(0, 255, 100, 0.8));
 }
 
+/* Leaflet por debajo del resto de la UI */
+.leaflet-container {
+  z-index: 0 !important;
+}
+
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 0 !important;
+}
+
 .map-marker .check {
   position: absolute;
   bottom: -6px;
