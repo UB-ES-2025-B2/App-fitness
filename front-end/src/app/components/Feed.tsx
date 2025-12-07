@@ -139,6 +139,7 @@ export default function Feed() {
         setPosts(data.map(normalizePost));
       } catch (err) {
         console.error(err);
+        setError("No s'han pogut carregar les publicacions. Intenta-ho més tard.");
       } finally {
         setLoading(false);
       }
@@ -356,10 +357,20 @@ export default function Feed() {
               post={post.type === 'repost' ? post.originalPost! : post} 
               handleToggleLike={handleToggleLike} 
               handleRepost={handleRepost}
+              handleOpenReport={handleOpenReport}
             />
           </article>
         ))}
       </div>
+
+      {isReportModalOpen && reportPostId !== null && (
+          <ReportForm 
+            targetId={reportPostId} 
+            targetType="post"
+            isOpen={isReportModalOpen} 
+            onClose={handleCloseReport} 
+          />
+      )}
     </section>
   );
 }
@@ -368,93 +379,86 @@ function PostContent({
     post,
     handleToggleLike,
     handleRepost,
+    handleOpenReport,
 }: {
     post: OriginalContent;
     handleToggleLike: (id: number) => void;
     handleRepost: (id: number) => void;
+    handleOpenReport: (id: number) => void;
 }) {
     return (
-        <div className={post.type === 'repost' ? "border border-gray-200 dark:border-slate-700 p-4 rounded-xl" : ""}>
-            <div className="flex items-center justify-between mb-2">
-                {post.userId ? (
-                    <Link
-                        href={`/usuario/${post.userId}`}
-                        className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
-                    >
-                        {post.user}
-                    </Link>
-                ) : (
-                    <h2 className="font-semibold text-blue-600 dark:text-blue-400">{post.user}</h2>
-                )}
-                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                    {post.topic}
-                </span>
-            </div>
-
-            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{post.text}</p>
-
-            {post.image && (
-                <div className="mt-3 overflow-hidden rounded-xl">
-                    <img
-                        src={post.image}
-                        alt={post.topic}
-                        className="w-full h-64 object-cover transform hover:scale-[1.02] transition-transform duration-500"
-                    />
-                </div>
-            )}
-
-            <div className="mt-3 flex items-center gap-3">
-                <button
-                    onClick={() => handleToggleLike(post.id)}
-                    className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
-                >
-                    <span>{post.likedByMe ? "💖" : "🤍"}</span>
-                    <span>{post.likeCount ?? 0} Me gusta</span>
-                </button>
-                
-                <button
-                    onClick={() => handleRepost(post.id)}
-                    className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400"
-                >
-                    <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="currentColor"
-                        className="w-4 h-4"
-                    >
-                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm3.5 12.5a.5.5 0 0 1-.5.5H12a.5.5 0 0 1-.5-.5v-4h-2a.5.5 0 0 1-.5-.5V9a.5.5 0 0 1 .5-.5h2V4.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v4h2a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-2v4a.5.5 0 0 1-.5.5z"/>
-                        <path fill="none" d="M0 0h24v24H0z"/>
-                    </svg>
-
-                    <span>Repost</span>
-                </button>
-                
-                {post.repostCount !== undefined && post.repostCount >= 0 && (
-                    <span className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
-                        🔁 {post.repostCount} Reposts
-                    </span>
-                )}
-            <button
-                onClick={() => handleOpenReport(post.id)}
-                className="flex items-center gap-1 text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 ml-auto"
-              ><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                    <line x1="12" y1="9" x2="12" y2="13" />
-                    <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-                Denunciar
-                </button>
-            </div>
+      <div className={post.type === 'repost' ? "border border-gray-200 dark:border-slate-700 p-4 rounded-xl" : ""}>
+        <div className="flex items-center justify-between mb-2">
+          {post.userId ? (
+              <Link
+                  href={`/usuario/${post.userId}`}
+                  className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                  {post.user}
+              </Link>
+          ) : (
+              <h2 className="font-semibold text-blue-600 dark:text-blue-400">{post.user}</h2>
+          )}
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              {post.topic}
+          </span>
         </div>
-        {isReportModalOpen && reportPostId !== null && (
-          <ReportForm 
-            targetId={reportPostId} 
-            targetType="post"
-            isOpen={isReportModalOpen} 
-            onClose={handleCloseReport} 
-          />
-      )}
-        </section>
+
+        <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{post.text}</p>
+
+        {post.image && (
+            <div className="mt-3 overflow-hidden rounded-xl">
+                <img
+                    src={post.image}
+                    alt={post.topic}
+                    className="w-full h-64 object-cover transform hover:scale-[1.02] transition-transform duration-500"
+                />
+            </div>
+        )}
+
+        <div className="mt-3 flex items-center gap-3">
+            <button
+                onClick={() => handleToggleLike(post.id)}
+                className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+            >
+                <span>{post.likedByMe ? "💖" : "🤍"}</span>
+                <span>{post.likeCount ?? 0} Me gusta</span>
+            </button>
+            
+            <button
+                onClick={() => handleRepost(post.id)}
+                className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400"
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="w-4 h-4"
+                >
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm3.5 12.5a.5.5 0 0 1-.5.5H12a.5.5 0 0 1-.5-.5v-4h-2a.5.5 0 0 1-.5-.5V9a.5.5 0 0 1 .5-.5h2V4.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v4h2a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-2v4a.5.5 0 0 1-.5.5z"/>
+                    <path fill="none" d="M0 0h24v24H0z"/>
+                </svg>
+
+                <span>Repost</span>
+            </button>
+            
+            {post.repostCount !== undefined && post.repostCount >= 0 && (
+                <span className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
+                    🔁 {post.repostCount} Reposts
+                </span>
+            )}
+          <button
+              onClick={() => handleOpenReport(post.id)}
+              className="flex items-center gap-1 text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 ml-auto"
+            ><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              Denunciar
+              </button>
+        </div>
+      </div>
     );
 }
 
@@ -462,160 +466,160 @@ function PostContent({
     TOPIC DROPDOWN & FEED FILTERS
 ----------------------------------------------------------------*/
 function TopicDropdown({
-  topic,
-  setTopic,
-  topics,
+    topic,
+    setTopic,
+    topics,
 }: {
-  topic: Topic;
-  setTopic: (t: Topic) => void;
-  topics: Topic[];
+    topic: Topic;
+    setTopic: (t: Topic) => void;
+    topics: Topic[];
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    const onDocClick = (e: MouseEvent) => {
-      if (!ref.current) return;
-      if (open && !ref.current.contains(e.target as Node)) setOpen(false);
+    useEffect(() => {
+        const onDocClick = (e: MouseEvent) => {
+            if (!ref.current) return;
+            if (open && !ref.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener("mousedown", onDocClick);
+        return () => document.removeEventListener("mousedown", onDocClick);
+    }, [open]);
+
+    const onSelect = (t: Topic) => {
+        setTopic(t);
+        setOpen(false);
     };
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [open]);
 
-  const onSelect = (t: Topic) => {
-    setTopic(t);
-    setOpen(false);
-  };
-
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700/60 shadow-sm hover:bg-blue-50 dark:hover:bg-slate-600 text-sm transition-all"
-      >
-        <span>Temática:</span>
-        <span className="font-medium text-blue-700 dark:text-blue-400">{topic}</span>
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-          className={`transition ${open ? "rotate-180" : ""}`}
-        >
-          <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        </svg>
-      </button>
-
-      {open && (
-        <ul
-          role="listbox"
-          aria-label="Seleccionar temàtica"
-          className="absolute z-40 mt-2 w-56 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl shadow-xl p-1 backdrop-blur-sm"
-        >
-          {topics.map((t) => {
-            const active = t === topic;
-            return (
-              <li key={t}>
-                <button
-                  role="option"
-                  aria-selected={active}
-                  onClick={() => onSelect(t)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                    active
-                      ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium"
-                      : "hover:bg-blue-50 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200"
-                  }`}
+    return (
+        <div className="relative" ref={ref}>
+            <button
+                aria-haspopup="listbox"
+                aria-expanded={open}
+                onClick={() => setOpen((v) => !v)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700/60 shadow-sm hover:bg-blue-50 dark:hover:bg-slate-600 text-sm transition-all"
+            >
+                <span>Temática:</span>
+                <span className="font-medium text-blue-700 dark:text-blue-400">{topic}</span>
+                <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    className={`transition ${open ? "rotate-180" : ""}`}
                 >
-                  {t}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
+                    <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+            </button>
+
+            {open && (
+                <ul
+                    role="listbox"
+                    aria-label="Seleccionar temàtica"
+                    className="absolute z-40 mt-2 w-56 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl shadow-xl p-1 backdrop-blur-sm"
+                >
+                    {topics.map((t) => {
+                        const active = t === topic;
+                        return (
+                            <li key={t}>
+                                <button
+                                    role="option"
+                                    aria-selected={active}
+                                    onClick={() => onSelect(t)}
+                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                                        active
+                                            ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium"
+                                            : "hover:bg-blue-50 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200"
+                                    }`}
+                                >
+                                    {t}
+                                </button>
+                            </li>
+                        );
+                    })}
+                </ul>
+            )}
+        </div>
+    );
 }
 
 function FeedFilters({
-  sortOrder,
-  setSortOrder,
+    sortOrder,
+    setSortOrder,
 }: {
-  sortOrder: string;
-  setSortOrder: (v: string) => void;
+    sortOrder: string;
+    setSortOrder: (v: string) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) {
+                setOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const selectOrder = (order: "ASC" | "DESC") => {
+        setSortOrder(order);
         setOpen(false);
-      }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
-  const selectOrder = (order: "ASC" | "DESC") => {
-    setSortOrder(order);
-    setOpen(false);
-  };
+    return (
+        <div className="relative w-full flex justify-end" ref={ref}>
+            <button
+                className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-sm flex items-center gap-2 shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700 transition"
+                onClick={() => setOpen(!open)}
+            >
+                Ordenar:
+                <span className="font-medium text-blue-600 dark:text-blue-400">
+                    {sortOrder === "DESC" ? "Más reciente" : "Más antiguo"}
+                </span>
 
-  return (
-    <div className="relative w-full flex justify-end" ref={ref}>
-      <button
-        className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-sm flex items-center gap-2 shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700 transition"
-        onClick={() => setOpen(!open)}
-      >
-        Ordenar:
-        <span className="font-medium text-blue-600 dark:text-blue-400">
-          {sortOrder === "DESC" ? "Más reciente" : "Más antiguo"}
-        </span>
+                <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    className={`transition ${open ? "rotate-180" : ""}`}
+                >
+                    <path
+                        d="M6 9l6 6 6-6"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                    />
+                </svg>
+            </button>
 
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          className={`transition ${open ? "rotate-180" : ""}`}
-        >
-          <path
-            d="M6 9l6 6 6-6"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-        </svg>
-      </button>
+            {open && (
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden z-50">
+                    <button
+                        onClick={() => selectOrder("DESC")}
+                        className={`w-full text-left px-4 py-2 text-sm transition ${
+                            sortOrder === "DESC"
+                                ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
+                                : "hover:bg-gray-100 dark:hover:bg-slate-700"
+                        }`}
+                    >
+                        Más reciente
+                    </button>
 
-      {open && (
-        <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden z-50">
-          <button
-            onClick={() => selectOrder("DESC")}
-            className={`w-full text-left px-4 py-2 text-sm transition ${
-              sortOrder === "DESC"
-                ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
-                : "hover:bg-gray-100 dark:hover:bg-slate-700"
-            }`}
-          >
-            Más reciente
-          </button>
-
-          <button
-            onClick={() => selectOrder("ASC")}
-            className={`w-full text-left px-4 py-2 text-sm transition ${
-              sortOrder === "ASC"
-                ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
-                : "hover:bg-gray-100 dark:hover:bg-slate-700"
-            }`}
-          >
-            Más antiguo
-          </button>
+                    <button
+                        onClick={() => selectOrder("ASC")}
+                        className={`w-full text-left px-4 py-2 text-sm transition ${
+                            sortOrder === "ASC"
+                                ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
+                                : "hover:bg-gray-100 dark:hover:bg-slate-700"
+                        }`}
+                    >
+                        Más antiguo
+                    </button>
+                </div>
+            )}
         </div>
-      )}
-    </div>
-  );
+    );
 }
