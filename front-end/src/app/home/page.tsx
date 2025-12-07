@@ -16,6 +16,7 @@ export default function HomePage() {
           <HomeCityProgressPanel />
         </div>
       </div>
+      {/* Chat is now mounted globally in RootLayout */}
     </div>
   );
 }
