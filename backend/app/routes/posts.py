@@ -1,7 +1,7 @@
 from datetime import timezone
 from flask import Blueprint, jsonify, request, g, current_app
 import jwt
-from app.models import Repost, User, Post
+from app.models import Repost, User, Post, Report
 from app import db
 from app.utils.auth_utils import token_required
 from sqlalchemy.exc import IntegrityError
@@ -261,3 +261,46 @@ def delete_post(current_user, post_id):
     db.session.commit()
 
     return jsonify({"message": "Post eliminado correctamente"}), 200
+
+@bp.post("/<int:post_id>/report")
+@token_required
+def report_post(current_user, post_id):
+    """
+    Permet a un usuari autenticat denunciar un post existent.
+    Requereix 'category' i accepta 'comment' (opcional) al body.
+    """
+    data = request.get_json(force=True) or {}
+    
+    post = Post.query.get(post_id)
+    if not post:
+        return jsonify({"error": "Post no trobat"}), 404
+        
+    category = (data.get("category") or "").strip()
+    if not category:
+        return jsonify({"error": "Falta el camp 'category' per a la denúncia"}), 400
+
+    comment = data.get("comment", "")
+    
+    existing_report = Report.query.filter_by(
+        reporting_user_id=current_user.id,
+        post_id=post_id
+    ).first()
+    
+    if existing_report:
+        return jsonify({"error": "Ja has denunciat aquest contingut prèviament"}), 409 
+
+    report = Report(
+        reporting_user_id=current_user.id,
+        post_id=post_id,
+        category=category,
+        comment=comment
+    )
+
+    db.session.add(report)
+    db.session.commit()
+    
+
+    return jsonify({
+        "message": "Denúncia registrada correctament. Serà revisada per l'equip de moderació.",
+        "report_id": report.id
+    }), 201

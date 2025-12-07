@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Topic, useTopic } from "./TopicContext";
 import { motion } from "framer-motion";
+import Image from 'next/image';
+import ReportForm from "./ReportForm";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 const TOPICS: Topic[] = ["Todos", "Fútbol", "Básquet", "Montaña"];
@@ -116,6 +118,16 @@ export default function Feed() {
   const { topic, setTopic } = useTopic();
 
   const [sortOrder, setSortOrder] = useState("DESC");
+  const [reportPostId, setReportPostId] = useState<number | null>(null); // ID del post a denunciar
+  const isReportModalOpen = reportPostId !== null;
+
+  const handleOpenReport = (postId: number) => {
+    setReportPostId(postId);
+  };
+  
+  const handleCloseReport = () => {
+    setReportPostId(null);
+  };
   
 
   useEffect(() => {
@@ -422,8 +434,27 @@ function PostContent({
                         🔁 {post.repostCount} Reposts
                     </span>
                 )}
+            <button
+                onClick={() => handleOpenReport(post.id)}
+                className="flex items-center gap-1 text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 ml-auto"
+              ><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                Denunciar
+                </button>
             </div>
         </div>
+        {isReportModalOpen && reportPostId !== null && (
+          <ReportForm 
+            targetId={reportPostId} 
+            targetType="post"
+            isOpen={isReportModalOpen} 
+            onClose={handleCloseReport} 
+          />
+      )}
+        </section>
     );
 }
 

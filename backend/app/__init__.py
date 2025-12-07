@@ -22,7 +22,7 @@ def create_app(test_config=None):
     # mail.init_app(app)
 
     # Importa models perquè Alembic els detecti
-    from app.models import User, Post, follow, Repost
+    from app.models import User, Post, follow, Repost, Report
     from app.routes.auth import bp as auth_bp
     from app.routes import upload
     from .routes.search import bp as search_bp
