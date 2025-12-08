@@ -1,6 +1,5 @@
 import Feed from "../components/Feed"; 
 import FollowedCommunities from "../components/FollowedCommunities";
-import CityProgressPanel from "../components/CityProgressPanel";
 import HomeCityProgressPanel from "../components/HomeCityProgressPanel";
 
 export default function HomePage() {

@@ -94,19 +94,27 @@ export default function NutritionChat() {
             console.debug("[NutrIA webhook text]", bodyText);
           }
           // If text looks like JSON array/object, try to parse and extract `output`
-          let parsed: any = null;
+          let parsed: unknown = null;
           try {
             parsed = JSON.parse(bodyText);
           } catch {
             parsed = null;
           }
-          if (parsed) {
+          if (parsed !== null) {
             const normalized = Array.isArray(parsed) ? parsed[0] : parsed;
-            assistantText =
-              normalized?.output ??
-              normalized?.reply ??
-              normalized?.message ??
-              (typeof normalized === "string" ? normalized : JSON.stringify(normalized));
+            if (typeof normalized === "object" && normalized !== null) {
+              const obj = normalized as Record<string, unknown>;
+              const pick = (key: string) => (typeof obj[key] === "string" ? (obj[key] as string) : undefined);
+              assistantText =
+                pick("output") ??
+                pick("reply") ??
+                pick("message") ??
+                JSON.stringify(obj);
+            } else if (typeof normalized === "string") {
+              assistantText = normalized;
+            } else {
+              assistantText = String(normalized);
+            }
           } else {
             assistantText = bodyText;
           }
@@ -127,7 +135,7 @@ export default function NutritionChat() {
         timestamp: Date.now(),
       };
       setMessages((prev) => [...prev, assistantMsg]);
-    } catch (err: any) {
+    } catch {
       const assistantMsg: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
