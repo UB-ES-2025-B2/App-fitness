@@ -31,6 +31,7 @@ class Post(db.Model):
                 "id": self.author.id,
                 "username": self.author.username,
                 "name": self.author.name,
+                "avatar_url": self.author.avatar_url,
             },
             "likes": self.liked_by.count(),
             "reposts":self.repost_count,

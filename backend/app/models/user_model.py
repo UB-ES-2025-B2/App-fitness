@@ -68,6 +68,7 @@ class User(db.Model):
             "id": self.id,
             "username": self.username,
             "name": self.name or "",
+            "avatar_url": self.avatar_url,
             "avatarUrl": self.avatar_url,
             "bio": self.bio or "",
             "ocultarInfo": bool(self.ocultar_info),

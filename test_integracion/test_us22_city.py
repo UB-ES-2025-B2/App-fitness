@@ -26,7 +26,7 @@ def test_buscar_ciudad_y_abrir_pagina(driver):
     login.abrir()
     time.sleep(1)
     login.login("toni@example.com", "app-fitness1")
-    time.sleep(5)
+    time.sleep(15)
 
     # 2. Buscar Barcelona desde el buscador de la home
     home.buscar("Barcelona")

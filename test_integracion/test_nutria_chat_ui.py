@@ -31,6 +31,7 @@ def test_nutria_chat_opens_and_toggles(driver):
     # Demo credentials used across other tests
     login.login("toni@example.com", "app-fitness1")
 
+    time.sleep(15)  # Wait for login to complete
     feed.abrir()
 
     # Open the modal
