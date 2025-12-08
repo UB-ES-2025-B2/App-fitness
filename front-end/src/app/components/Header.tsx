@@ -1,8 +1,8 @@
 "use client";
+
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { useTopic, Topic } from "./TopicContext";
 import SearchBox from "./SearchBox";
 import { usePathname } from "next/navigation";
 
@@ -15,7 +15,6 @@ type UserHeader = {
 };
 
 export default function Header() {
-  const { topic } = useTopic();
   const pathname = usePathname();
 
   // Rutas donde NO queremos mostrar el header
@@ -52,7 +51,6 @@ export default function Header() {
   return (
     <header className="fixed top-0 left-0 w-full z-50 bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm">
       <nav className="max-w-6xl mx-auto px-5 sm:px-8 py-3 flex items-center justify-between gap-3">
-
         <Link
           href="/"
           aria-label="Ir al inicio"
@@ -78,7 +76,6 @@ export default function Header() {
             <span className="text-blue-700 font-semibold">{initial}</span>
           )}
         </Link>
-
       </nav>
     </header>
   );
