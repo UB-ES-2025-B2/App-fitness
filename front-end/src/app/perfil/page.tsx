@@ -796,6 +796,8 @@ function SettingsDropdown({
 
             <Input label="Username" value={form.username} onChange={(v) => setForm({ ...form, username: v })} prefix="@" />
 
+
+
             <div className="grid grid-cols-2 gap-2">
               <Input type="date" label="Fecha de nacimiento" value={form.fechaNacimiento} onChange={(v) => setForm({ ...form, fechaNacimiento: v })} />
               <Input label="Lugar de nacimiento" value={form.lugarNacimiento} onChange={(v) => setForm({ ...form, lugarNacimiento: v })} />
