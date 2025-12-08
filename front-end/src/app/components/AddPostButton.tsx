@@ -2,28 +2,29 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { useTopic } from "./TopicContext";
-import { usePathname } from "next/navigation"; // <-- AÑADIDO
+import { useTopic, Topic } from "./TopicContext";
+import Cropper from "react-easy-crop";
+import { getCroppedImage } from "../components/GetCroppedImage";
+import { Area } from "react-easy-crop";
+import { authFetch, getTokens } from "../lib/api";
+
+type NewPostPayload = {
+  id: number;
+  user: string;
+  topic: string;
+  text: string;
+  image?: string;
+};
+
+
 
 export default function AddPostButton() {
   const [open, setOpen] = useState(false);
   const { topic } = useTopic();
-  const pathname = usePathname(); // <-- AÑADIDO
-
-  // Rutas donde NO queremos mostrar el botón flotante
-  const hiddenOn = [
-    "/login",
-    "/registration",
-    "/verify-email",
-    "/verify-email-start"
-  ];
-
-  // Si estamos en una de esas rutas → NO renderizar el botón
-  if (hiddenOn.includes(pathname)) return null;
 
   return (
     <>
-      {/* Botón flotante */}
+      {/* Botó flotant */}
       <button
         aria-label="Afegir publicació"
         onClick={() => setOpen(true)}
@@ -48,7 +49,6 @@ export default function AddPostButton() {
     </>
   );
 }
-
 
 export function PostComposer({
   defaultTopic,

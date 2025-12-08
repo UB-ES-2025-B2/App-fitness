@@ -2,12 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { usePathname } from "next/navigation"; // <-- IMPORTANTE
 
 export default function NutritionButton() {
   const [isLogged, setIsLogged] = useState(false);
+  const pathname = usePathname(); // <-- PARA SABER LA RUTA
 
   useEffect(() => {
-    // Comprova tokens en localStorage
     const raw = localStorage.getItem("ubfitness_tokens");
     if (raw) {
       try {
@@ -19,8 +20,18 @@ export default function NutritionButton() {
     }
   }, []);
 
-  // ❌ Si NO està loguejat → no es mostra el botó
-  if (!isLogged) return null;
+  // Rutas donde NO debe mostrarse el botón
+  const hiddenOn = [
+    "/login",
+    "/registration",
+    "/verify-email",
+    "/verify-email-start",
+  ];
+
+
+  if (!isLogged || hiddenOn.includes(pathname)) {
+    return null;
+  }
 
   const openChat = () => {
     if (typeof window !== "undefined") {

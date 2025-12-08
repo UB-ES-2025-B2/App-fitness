@@ -32,7 +32,7 @@ export default function LoginPage() {
 
         try {
           payload = txt ? JSON.parse(txt) : null;
-        } catch {}
+        } catch { }
 
         if (res.status === 403 && /verificar/i.test(payload?.error ?? "")) {
           setError("Tu correo no está verificado. Redirigiendo para verificar…");
@@ -92,6 +92,24 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-gray-100 to-gray-200 px-4">
+      {/*  Imagen grande semitransparente detrás del panel */}
+      {/* Logo izquierda */}
+      {/* Logo izquierda */}
+      <img
+        src="/images/logo_ub_latex.png"
+        alt="UB Logo Izquierda"
+        className="absolute left-[10%] top-[58%] -translate-y-1/2 w-[300px] opacity-100 select-none pointer-events-none"
+      />
+
+      {/* Logo derecha */}
+      <img
+        src="/images/logo_ub_latex.png"
+        alt="UB Logo Derecha"
+        className="absolute right-[10%] top-[58%] -translate-y-1/2 w-[300px] opacity-100 select-none pointer-events-none"
+      />
+
+
+
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -147,9 +165,8 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2 ${
-              loading ? "opacity-80 cursor-not-allowed" : ""
-            }`}
+            className={`w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2 ${loading ? "opacity-80 cursor-not-allowed" : ""
+              }`}
           >
             {loading ? (
               <motion.div
