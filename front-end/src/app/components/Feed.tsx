@@ -136,7 +136,32 @@ export default function Feed() {
   useEffect(() => {
     const fetchPosts = async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/posts/`);
+        // 1. Leer token de localStorage (igual que haces en like/bookmark)
+        const raw = localStorage.getItem("ubfitness_tokens");
+        let accessToken: string | null = null;
+  
+        if (raw) {
+          try {
+            const parsed = JSON.parse(raw);
+            accessToken = parsed.access_token;
+          } catch (e) {
+            console.error("Invalid ubfitness_tokens in localStorage", e);
+          }
+        }
+  
+        // 2. Construir headers (con o sin Authorization)
+        const headers: HeadersInit = {
+          "Content-Type": "application/json",
+        };
+        if (accessToken) {
+          headers["Authorization"] = `Bearer ${accessToken}`;
+        }
+  
+        // 3. Hacer el fetch con headers
+        const res = await fetch(`${API_BASE}/api/posts/`, {
+          headers,
+        });
+  
         if (!res.ok) throw new Error("Error cargando posts");
         const data: BackendPost[] = await res.json();
         setPosts(data.map(normalizePost));
@@ -147,17 +172,17 @@ export default function Feed() {
         setLoading(false);
       }
     };
-
+  
     fetchPosts();
-
+  
     const onNewPost = (e: Event) => {
       const detail = (e as CustomEvent<Post>).detail;
       setPosts((prev) => [detail, ...prev]);
     };
-
+  
     window.addEventListener("new-post", onNewPost as EventListener);
     return () => window.removeEventListener("new-post", onNewPost as EventListener);
-  }, []);
+  }, []);  
 
 
   const handleRepost = async (postId: number) => {

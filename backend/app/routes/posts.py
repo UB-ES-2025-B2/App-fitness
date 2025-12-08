@@ -229,43 +229,52 @@ def get_my_liked_posts(current_user):
 @bp.post("/<int:post_id>/bookmark")
 @token_required
 def bookmark_post(current_user, post_id):
-    """
-    Marca un post como guardado para el usuario actual.
-    """
     post = Post.query.get(post_id)
     if not post:
         return jsonify({"error": "Post not found"}), 404
 
-    # Si aún no está guardado, lo añadimos
-    if not post.bookmarked_by.filter_by(id=current_user.id).first():
-        post.bookmarked_by.append(current_user)
+    # 1) Check if it already exists
+    existing = Bookmark.query.filter_by(
+        user_id=current_user.id,
+        post_id=post_id
+    ).first()
+
+    if existing:
+        # Already bookmarked → no error, just confirm state
+        return jsonify({"bookmarked": True}), 200
+
+    # 2) Create new bookmark
+    bm = Bookmark(user_id=current_user.id, post_id=post_id)
+    db.session.add(bm)
+
+    try:
         db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        # In case of a race condition, just return "bookmarked"
+        return jsonify({"bookmarked": True}), 200
 
-    return jsonify({
-        "message": "Bookmarked",
-        "bookmarked": True
-    }), 200
-
+    return jsonify({"bookmarked": True}), 200
 
 @bp.delete("/<int:post_id>/bookmark")
 @token_required
 def unbookmark_post(current_user, post_id):
-    """
-    Elimina el bookmark del post para el usuario actual.
-    """
     post = Post.query.get(post_id)
     if not post:
         return jsonify({"error": "Post not found"}), 404
 
-    rel = post.bookmarked_by.filter_by(id=current_user.id).first()
-    if rel:
-        post.bookmarked_by.remove(current_user)
-        db.session.commit()
+    existing = Bookmark.query.filter_by(
+        user_id=current_user.id,
+        post_id=post_id
+    ).first()
 
-    return jsonify({
-        "message": "Unbookmarked",
-        "bookmarked": False
-    }), 200
+    if not existing:
+        # Nothing to delete, but that's fine
+        return jsonify({"bookmarked": False}), 200
+
+    db.session.delete(existing)
+    db.session.commit()
+    return jsonify({"bookmarked": False}), 200
 
 
 @bp.route("/posts", methods=["GET"])

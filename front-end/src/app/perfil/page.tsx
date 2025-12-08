@@ -240,6 +240,55 @@ export default function ProfilePage() {
   const cancelDeletePost = () => {
     setPostToDelete(null);
   };
+  const handleUnbookmark = async (post: ApiPost) => {
+    const postId = post.type === "repost" && post.originalPost
+      ? post.originalPost.id
+      : post.id;
+
+    try {
+      const res = await authFetch(`${API_BASE}/api/posts/${postId}/bookmark`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("Error al quitar de guardados:", text);
+        alert("No se pudo quitar de guardados");
+        return;
+      }
+
+      setBookmarkedPosts((prev) =>
+        prev.filter((p) => {
+          const id = p.type === "repost" && p.originalPost ? p.originalPost.id : p.id;
+          return id !== postId;
+        })
+      );
+
+      setPosts((prev) =>
+        prev.map((p) => {
+          const isOriginal = p.id === postId && p.type === "original";
+          const isRepost = p.type === "repost" && p.originalPost?.id === postId;
+
+          if (isOriginal) {
+            return { ...p, bookmarkedByMe: false };
+          }
+          if (isRepost && p.originalPost) {
+            return {
+              ...p,
+              originalPost: {
+                ...p.originalPost,
+                bookmarkedByMe: false,
+              },
+            };
+          }
+          return p;
+        })
+      );
+    } catch (err) {
+      console.error("Error de red al quitar de guardados:", err);
+      alert("Error de red al quitar de guardados");
+    }
+  };
 
   const confirmDeletePost = async () => {
     if (postToDelete === null) return;
@@ -561,6 +610,15 @@ export default function ProfilePage() {
                       className="absolute -top-3 right-3 text-xs px-2 py-1 rounded-full bg-red-600 text-white hover:bg-red-700 shadow"
                     >
                       Eliminar
+                    </button>
+                  )}
+                  {activeTab === "BOOKMARKS" && (
+                    <button
+                      type="button"
+                      onClick={() => handleUnbookmark(p)}
+                      className="absolute -top-3 right-3 text-xs px-2 py-1 rounded-full bg-amber-500 text-white hover:bg-amber-600 shadow"
+                    >
+                      Quitar de guardados
                     </button>
                   )}
 

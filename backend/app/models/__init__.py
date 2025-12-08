@@ -23,4 +23,4 @@ from .repost_model import Repost
 from .report_model import Report
 from .post_bookmark_model import Bookmark
 
-__all__ = ["User", "Post", "PostLike", "follow", "EmailVerification", "City", "Activity", "UserActivity",]
+__all__ = ["User", "Post", "PostLike", "follow", "EmailVerification", "City", "Activity", "UserActivity","Bookmark"]
