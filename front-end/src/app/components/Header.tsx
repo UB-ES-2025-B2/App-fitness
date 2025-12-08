@@ -17,10 +17,6 @@ type UserHeader = {
 export default function Header() {
   const pathname = usePathname();
 
-  // Rutas donde NO queremos mostrar el header
-  const hiddenOn = ["/login", "/registration", "/verify-email-start", "/verify-email"];
-  if (hiddenOn.includes(pathname)) return null;
-
   const [user, setUser] = useState<UserHeader | null>(null);
 
   useEffect(() => {
@@ -39,11 +35,13 @@ export default function Header() {
 
     loadUser();
     window.addEventListener("user-updated", loadUser);
-
     return () => {
       window.removeEventListener("user-updated", loadUser);
     };
   }, []);
+
+  const hiddenOn = ["/login", "/registration", "/verify-email-start", "/verify-email"];
+  if (hiddenOn.includes(pathname)) return null;
 
   const avatar = user?.avatar_url || user?.avatarUrl;
   const initial = user?.name ? user.name.charAt(0).toUpperCase() : "U";
