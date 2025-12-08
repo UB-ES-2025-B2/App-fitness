@@ -25,6 +25,7 @@ type PostBase = {
 type OriginalContent = PostBase & {
   user: string;
   userId?: number;
+  avatar?: string | null;
   type?: 'original' | 'repost';
 };
 
@@ -44,7 +45,12 @@ type BackendPost = {
   date?: string | null;
   created_at?: string | null;
   timestamp?: string | null;
-  user?: { id: number; username: string; name?: string | null } | null;
+  user?: { 
+  id: number; 
+  username: string; 
+  name?: string | null;
+  avatar_url?: string | null;   // ⭐ AÑADIDO
+} | null;
   likes?: number;
   liked?: boolean;
   likedByMe?: boolean;
@@ -74,6 +80,11 @@ function normalizePost(p: BackendPost): Post {
     typeof sourcePost.user === "object" && sourcePost.user?.id
       ? sourcePost.user.id
       : undefined;
+  const avatar =
+  typeof sourcePost.user === "object"
+    ? sourcePost.user?.avatar_url || null
+    : null;
+
 
   const bestDate =
     sourcePost.date ||
@@ -88,6 +99,7 @@ function normalizePost(p: BackendPost): Post {
     image: sourcePost.image ?? undefined,
     user: userName,
     userId,
+    avatar,
     likeCount: sourcePost.likes ?? 0,
     likedByMe: sourcePost.likedByMe ?? sourcePost.liked ?? false,
     bookmarkedByMe: sourcePost.bookmarkedByMe ?? false,
@@ -139,7 +151,7 @@ export default function Feed() {
         // 1. Leer token de localStorage (igual que haces en like/bookmark)
         const raw = localStorage.getItem("ubfitness_tokens");
         let accessToken: string | null = null;
-  
+
         if (raw) {
           try {
             const parsed = JSON.parse(raw);
@@ -148,7 +160,7 @@ export default function Feed() {
             console.error("Invalid ubfitness_tokens in localStorage", e);
           }
         }
-  
+
         // 2. Construir headers (con o sin Authorization)
         const headers: HeadersInit = {
           "Content-Type": "application/json",
@@ -156,12 +168,12 @@ export default function Feed() {
         if (accessToken) {
           headers["Authorization"] = `Bearer ${accessToken}`;
         }
-  
+
         // 3. Hacer el fetch con headers
         const res = await fetch(`${API_BASE}/api/posts/`, {
           headers,
         });
-  
+
         if (!res.ok) throw new Error("Error cargando posts");
         const data: BackendPost[] = await res.json();
         setPosts(data.map(normalizePost));
@@ -172,17 +184,17 @@ export default function Feed() {
         setLoading(false);
       }
     };
-  
+
     fetchPosts();
-  
+
     const onNewPost = (e: Event) => {
       const detail = (e as CustomEvent<Post>).detail;
       setPosts((prev) => [detail, ...prev]);
     };
-  
+
     window.addEventListener("new-post", onNewPost as EventListener);
     return () => window.removeEventListener("new-post", onNewPost as EventListener);
-  }, []);  
+  }, []);
 
 
   const handleRepost = async (postId: number) => {
@@ -517,7 +529,7 @@ function PostContent({
         </span>
       </div>
 
-      <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{post.text}</p>
+      <p className="text-gray-200 leading-relaxed">{post.text}</p>
 
       {post.image && (
         <div className="mt-3 overflow-hidden rounded-xl">
@@ -532,17 +544,25 @@ function PostContent({
       <div className="mt-3 flex items-center gap-3">
         <button
           onClick={() => handleToggleLike(post.id)}
-          className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+          className="flex items-center gap-1 text-sm 
+        text-gray-600 dark:text-gray-300 
+        hover:text-blue-500 dark:hover:text-blue-400
+        transition-all duration-200 
+        hover:scale-105 active:scale-95"
         >
           <span>{post.likedByMe ? "💖" : "🤍"}</span>
           <span>{post.likeCount ?? 0} Me gusta</span>
         </button>
 
         <button
-          onClick={() => handleRepost(post.id)}
-          className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400"
-        >
-          <svg
+        onClick={() => handleRepost(post.id)}
+        className="flex items-center gap-1 text-sm 
+        text-gray-600 dark:text-gray-300 
+        hover:text-green-500 dark:hover:text-green-400
+        transition-all duration-200 
+        hover:scale-105 active:scale-95"
+      >
+            <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
             fill="currentColor"
@@ -556,9 +576,13 @@ function PostContent({
         </button>
 
         <button
-          onClick={() => handleBookmarkPost(post.id)}
-          className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300 hover:text-amber-600 dark:hover:text-amber-400"
-        >
+        onClick={() => handleBookmarkPost(post.id)}
+        className="flex items-center gap-1 text-sm 
+        text-gray-600 dark:text-gray-300 
+        hover:text-amber-500 dark:hover:text-amber-400
+        transition-all duration-200 
+        hover:scale-105 active:scale-95"
+         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
@@ -584,9 +608,13 @@ function PostContent({
           </span>
         )}
         <button
-          onClick={() => handleOpenReport(post.id)}
-          className="flex items-center gap-1 text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 ml-auto"
-        ><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        onClick={() => handleOpenReport(post.id)}
+        className="flex items-center gap-1 text-xs 
+        text-red-500 dark:text-red-400 
+        hover:text-red-300 dark:hover:text-red-200
+        transition-all duration-200 
+        hover:scale-105 active:scale-95 ml-auto"
+><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
             <line x1="12" y1="9" x2="12" y2="13" />
             <line x1="12" y1="17" x2="12.01" y2="17" />
