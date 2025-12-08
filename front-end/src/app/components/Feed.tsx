@@ -10,16 +10,29 @@ import ReportForm from "./ReportForm";
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 const TOPICS: Topic[] = ["Todos", "Fútbol", "Básquet", "Montaña"];
 
-type Post = {
+type PostBase = {
   id: number;
-  user: string;
-  userId?: number;
   topic: string;
   text: string;
   image?: string;
   likeCount?: number;
   likedByMe?: boolean;
   date?: string;
+  repostCount?: number;
+};
+
+type OriginalContent = PostBase & {
+  user: string;
+  userId?: number;
+  type?: 'original' | 'repost';
+};
+
+type Post = OriginalContent & {
+  type: 'original' | 'repost';
+  repostedBy?: string;
+  repostedById?: number;
+  repostComment?: string;
+  originalPost?: OriginalContent; 
 };
 
 type BackendPost = {
@@ -34,38 +47,69 @@ type BackendPost = {
   likes?: number;
   liked?: boolean;
   likedByMe?: boolean;
+  reposts?: number;
+
+  type?: 'original' | 'repost'; 
+  comment_text?: string | null;
+  reposted_by?: { id: number; username: string; name?: string | null } | null;
+  original_content?: BackendPost;
 };
 
 function normalizePost(p: BackendPost): Post {
-  // Pot venir com string o com objecte
+  const isRepost = p.type === 'repost';
+  let sourcePost = p;
+  
+  if (isRepost && p.original_content) {
+    sourcePost = p.original_content;
+  }
+
   const userName =
-    typeof p.user === "string"
-      ? p.user
-      : p.user?.name || p.user?.username || "Usuari";
+    typeof sourcePost.user === "string"
+      ? sourcePost.user
+      : sourcePost.user?.name || sourcePost.user?.username || "Usuari";
 
   const userId =
-    typeof p.user === "object" && p.user?.id ? p.user.id : undefined;
+    typeof sourcePost.user === "object" && sourcePost.user?.id
+      ? sourcePost.user.id
+      : undefined;
 
-  // Obtenemos la mejor fecha disponible
   const bestDate =
-    p.date ||
-    p.created_at ||
-    p.timestamp ||
-    new Date().toISOString(); // fallback seguro
-
-  return {
-    id: p.id,
-    text: p.text,
-    topic: p.topic ?? "General",
-    image: p.image ?? undefined,
+    sourcePost.date ||
+    sourcePost.created_at ||
+    sourcePost.timestamp ||
+    new Date().toISOString(); 
+    
+  const originalData: OriginalContent = {
+    id: sourcePost.id,
+    text: sourcePost.text,
+    topic: sourcePost.topic ?? "General",
+    image: sourcePost.image ?? undefined,
     user: userName,
     userId,
-    likeCount: p.likes ?? 0,
-    likedByMe: p.likedByMe ?? p.liked ?? false,
+    likeCount: sourcePost.likes ?? 0,
+    likedByMe: sourcePost.likedByMe ?? sourcePost.liked ?? false,
     date: bestDate,
+    repostCount: sourcePost.reposts ?? 0,
   };
-}
+  
+  if (isRepost) {
+      const reposterName = p.reposted_by?.name || p.reposted_by?.username || "Usuari Desconegut";
+      const reposterId = p.reposted_by?.id;
+      const repostComment = p.comment_text ?? undefined;
+      
+      return {
+          ...originalData,
+          type: 'repost',
+          repostedBy: reposterName,
+          repostedById: reposterId,
+          repostComment: repostComment,
+          originalPost: originalData,
+          date: p.created_at || p.date || bestDate,
+      } as Post;
+  }
 
+  return { ...originalData, type: 'original' } as Post;
+}
 
 export default function Feed() {
   const [posts, setPosts] = useState<Post[]>([]);
@@ -73,7 +117,6 @@ export default function Feed() {
   const [error, setError] = useState<string | null>(null);
   const { topic, setTopic } = useTopic();
 
-  
   const [sortOrder, setSortOrder] = useState("DESC");
   const [reportPostId, setReportPostId] = useState<number | null>(null); // ID del post a denunciar
   const isReportModalOpen = reportPostId !== null;
@@ -96,6 +139,7 @@ export default function Feed() {
         setPosts(data.map(normalizePost));
       } catch (err) {
         console.error(err);
+        setError("No s'han pogut carregar les publicacions. Intenta-ho més tard.");
       } finally {
         setLoading(false);
       }
@@ -112,10 +156,57 @@ export default function Feed() {
     return () => window.removeEventListener("new-post", onNewPost as EventListener);
   }, []);
 
+
+  const handleRepost = async (postId: number) => {
+    const raw = localStorage.getItem("ubfitness_tokens");
+    let accessToken: string | null = null;
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        accessToken = parsed.access_token;
+      } catch (e) {
+        console.error("Invalid ubfitness_tokens in localStorage", e);
+      }
+    }
+
+    if (!accessToken) {
+      alert("Has d'iniciar sessió per repostejar.");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/posts/${postId}/repost`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (res.status === 201) {
+        alert("Repost creat amb èxit!");
+        window.location.reload(); 
+      } else if (res.status === 200) {
+        alert("Ja has reposteat aquest post.");
+      }
+      else {
+        const errorData = await res.json();
+        alert(`Error al fer Repost: ${errorData.error || 'Petició fallida'}`);
+        console.error("Error al fer Repost:", res.status, errorData);
+      }
+    } catch (err) {
+      console.error("Error durant la petició de Repost:", err);
+      alert("Error de xarxa en fer Repost.");
+    }
+  };
+
   const handleToggleLike = async (postId: number) => {
     setPosts((prev) => {
-      const post = prev.find((p) => p.id === postId);
-      const liked = post?.likedByMe ?? false;
+      const targetPost = prev.find((p) => p.id === postId);
+      const postToLike = targetPost?.type === 'repost' ? targetPost.originalPost : targetPost;
+
+      const liked = postToLike?.likedByMe ?? false;
       const method = liked ? "DELETE" : "POST";
 
       (async () => {
@@ -132,7 +223,7 @@ export default function Feed() {
         }
 
         try {
-          const res = await fetch(`${API_BASE}/api/posts/${postId}/like`, {
+          const res = await fetch(`${API_BASE}/api/posts/${postToLike?.id}/like`, {
             method,
             headers: {
               "Content-Type": "application/json",
@@ -149,11 +240,24 @@ export default function Feed() {
           const data = await res.json();
 
           setPosts((prev2) =>
-            prev2.map((p) =>
-              p.id === postId
-                ? { ...p, likedByMe: data.liked, likeCount: data.likes }
-                : p
-            )
+            prev2.map((p) => {
+              const isTargetOriginal = p.id === postToLike?.id && p.type === 'original';
+              const isTargetRepost = p.type === 'repost' && p.originalPost?.id === postToLike?.id;
+
+              if (isTargetOriginal) {
+                return { ...p, likedByMe: data.liked, likeCount: data.likes };
+              } else if (isTargetRepost) {
+                return { 
+                  ...p, 
+                  originalPost: {
+                    ...p.originalPost!, 
+                    likedByMe: data.liked, 
+                    likeCount: data.likes 
+                  }
+                };
+              }
+              return p;
+            })
           );
         } catch (err) {
           console.error("Error toggling like", err);
@@ -164,9 +268,6 @@ export default function Feed() {
     });
   };
 
-  // ------------------------------
-  // Loading
-  // ------------------------------
   if (loading)
     return (
       <div className="flex flex-col items-center justify-center h-[70vh]">
@@ -186,15 +287,8 @@ export default function Feed() {
       </div>
     );
 
-  // ------------------------------
-  // Error
-  // ------------------------------
   if (error)
     return <p className="text-center text-red-500 mt-10">{error}</p>;
-
-  // ------------------------------
-  // Visible posts (filtered)
-  // ------------------------------
 
   const visible = posts
     .filter((p) => topic === "Todos" || p.topic === topic)
@@ -204,25 +298,17 @@ export default function Feed() {
       return sortOrder === "DESC" ? db - da : da - db;
     });
 
-  // ------------------------------
-  // No content
-  // ------------------------------
   if (visible.length === 0)
     return <p className="text-center mt-10 text-gray-500">No hi ha contingut per mostrar.</p>;
 
-  // ------------------------------
-  // View
-  // ------------------------------
   return (
     <section className="w-full py-4 fade-in">
         <div className="mb-4 flex items-center justify-between gap-4">
 
-        {/* Temática */}
         <div>
           <TopicDropdown topic={topic} setTopic={setTopic} topics={TOPICS} />
         </div>
 
-        {/* Ordenar */}
         <div className="flex-1 flex justify-end">
           <FeedFilters sortOrder={sortOrder} setSortOrder={setSortOrder} />
         </div>
@@ -233,61 +319,50 @@ export default function Feed() {
       <div className="space-y-6 mt-4">
         {visible.map((post) => (
           <article
-            key={post.id}
+            key={post.id + post.type + (post.repostedById || 0)}
             className="bg-white dark:bg-slate-800/60 border border-gray-200 dark:border-slate-700 rounded-2xl p-5 shadow-sm hover:shadow-lg transition-shadow duration-300"
           >
-            <div className="flex items-center justify-between mb-2">
-              {post.userId ? (
-                <Link 
-                  href={`/usuario/${post.userId}`}
-                  className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
-                >
-                  {post.user}
-                </Link>
-              ) : (
-                <h2 className="font-semibold text-blue-600 dark:text-blue-400">{post.user}</h2>
-              )}
-              <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                {post.topic}
-              </span>
-            </div>
+            {post.type === 'repost' && (
+                <div className="mb-3 text-sm flex items-center gap-2 text-gray-500 dark:text-gray-400">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        className="w-4 h-4 text-blue-500"
+                    >
+                      <path fillRule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.355 4.5 4.5 0 0 0 4.5 0 7.5 7.5 0 0 1-12.548 3.355Z" clipRule="evenodd" />
+                      <path d="M18.75 12a.75.75 0 0 0 0 1.5h.008a.75.75 0 0 0 0-1.5H18.75Z" />
+                      <path fillRule="evenodd" d="M4.5 12.75a7.5 7.5 0 0 1 12.548-3.355 4.5 4.5 0 0 0 4.5 0 7.5 7.5 0 0 1-12.548 3.355ZM18.75 15a.75.75 0 0 0 0 1.5h.008a.75.75 0 0 0 0-1.5H18.75Z" clipRule="evenodd" />
+                    </svg>
 
-            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{post.text}</p>
-
-            {post.image && (
-              <div className="mt-3 overflow-hidden rounded-xl">
-                <Image
-                  src={post.image}
-                  alt={post.topic}
-                  width={600} 
-                  height={400}
-                  className="w-full h-64 object-cover transform hover:scale-[1.02] transition-transform duration-500"
-                />
-              </div>
+                    <p>
+                        Recompartido por{' '}
+                        <Link
+                            href={`/usuario/${post.repostedById}`}
+                            className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                        >
+                            {post.repostedBy}
+                        </Link>
+                    </p>
+                </div>
             )}
 
-            <div className="mt-3 flex items-center gap-3">
-              <button
-                onClick={() => handleToggleLike(post.id)}
-                className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
-              >
-                <span>{post.likedByMe ? "💖" : "🤍"}</span>
-                <span>{post.likeCount ?? 0} Me gusta</span>
-              </button>
-              <button
-                onClick={() => handleOpenReport(post.id)}
-                className="flex items-center gap-1 text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 ml-auto"
-              ><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                    <line x1="12" y1="9" x2="12" y2="13" />
-                    <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-                Denunciar
-                </button>
-            </div>
+            {post.type === 'repost' && post.repostComment && (
+                <p className="mb-4 italic text-gray-600 dark:text-gray-400 border-l-4 border-blue-500 pl-3">
+                    `{post.repostComment}`
+                </p>
+            )}
+
+            <PostContent 
+              post={post.type === 'repost' ? post.originalPost! : post} 
+              handleToggleLike={handleToggleLike} 
+              handleRepost={handleRepost}
+              handleOpenReport={handleOpenReport}
+            />
           </article>
         ))}
       </div>
+
       {isReportModalOpen && reportPostId !== null && (
           <ReportForm 
             targetId={reportPostId} 
@@ -300,167 +375,251 @@ export default function Feed() {
   );
 }
 
-/* ---------------------------------------------------------------
-   TOPIC DROPDOWN
-----------------------------------------------------------------*/
-function TopicDropdown({
-  topic,
-  setTopic,
-  topics,
+function PostContent({
+    post,
+    handleToggleLike,
+    handleRepost,
+    handleOpenReport,
 }: {
-  topic: Topic;
-  setTopic: (t: Topic) => void;
-  topics: Topic[];
+    post: OriginalContent;
+    handleToggleLike: (id: number) => void;
+    handleRepost: (id: number) => void;
+    handleOpenReport: (id: number) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
+    return (
+      <div className={post.type === 'repost' ? "border border-gray-200 dark:border-slate-700 p-4 rounded-xl" : ""}>
+        <div className="flex items-center justify-between mb-2">
+          {post.userId ? (
+              <Link
+                  href={`/usuario/${post.userId}`}
+                  className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                  {post.user}
+              </Link>
+          ) : (
+              <h2 className="font-semibold text-blue-600 dark:text-blue-400">{post.user}</h2>
+          )}
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+              {post.topic}
+          </span>
+        </div>
 
-  useEffect(() => {
-    const onDocClick = (e: MouseEvent) => {
-      if (!ref.current) return;
-      if (open && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [open]);
+        <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{post.text}</p>
 
-  const onSelect = (t: Topic) => {
-    setTopic(t);
-    setOpen(false);
-  };
+        {post.image && (
+            <div className="mt-3 overflow-hidden rounded-xl">
+                <img
+                    src={post.image}
+                    alt={post.topic}
+                    className="w-full h-64 object-cover transform hover:scale-[1.02] transition-transform duration-500"
+                />
+            </div>
+        )}
 
-  return (
-    <div className="relative" ref={ref}>
-      <button
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700/60 shadow-sm hover:bg-blue-50 dark:hover:bg-slate-600 text-sm transition-all"
-      >
-        <span>Temàtica:</span>
-        <span className="font-medium text-blue-700 dark:text-blue-400">{topic}</span>
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          aria-hidden="true"
-          className={`transition ${open ? "rotate-180" : ""}`}
-        >
-          <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        </svg>
-      </button>
-
-      {open && (
-        <ul
-          role="listbox"
-          aria-label="Seleccionar temàtica"
-          className="absolute z-40 mt-2 w-56 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl shadow-xl p-1 backdrop-blur-sm"
-        >
-          {topics.map((t) => {
-            const active = t === topic;
-            return (
-              <li key={t}>
-                <button
-                  role="option"
-                  aria-selected={active}
-                  onClick={() => onSelect(t)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                    active
-                      ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium"
-                      : "hover:bg-blue-50 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200"
-                  }`}
+        <div className="mt-3 flex items-center gap-3">
+            <button
+                onClick={() => handleToggleLike(post.id)}
+                className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+            >
+                <span>{post.likedByMe ? "💖" : "🤍"}</span>
+                <span>{post.likeCount ?? 0} Me gusta</span>
+            </button>
+            
+            <button
+                onClick={() => handleRepost(post.id)}
+                className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400"
+            >
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="w-4 h-4"
                 >
-                  {t}
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </div>
-  );
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm3.5 12.5a.5.5 0 0 1-.5.5H12a.5.5 0 0 1-.5-.5v-4h-2a.5.5 0 0 1-.5-.5V9a.5.5 0 0 1 .5-.5h2V4.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v4h2a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-2v4a.5.5 0 0 1-.5.5z"/>
+                    <path fill="none" d="M0 0h24v24H0z"/>
+                </svg>
+
+                <span>Repost</span>
+            </button>
+            
+            {post.repostCount !== undefined && post.repostCount >= 0 && (
+                <span className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
+                    🔁 {post.repostCount} Reposts
+                </span>
+            )}
+          <button
+              onClick={() => handleOpenReport(post.id)}
+              className="flex items-center gap-1 text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 ml-auto"
+            ><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              Denunciar
+              </button>
+        </div>
+      </div>
+    );
 }
 
 /* ---------------------------------------------------------------
-   FEED FILTERS - DROPDOWN MODERN
+    TOPIC DROPDOWN & FEED FILTERS
 ----------------------------------------------------------------*/
-function FeedFilters({
-  sortOrder,
-  setSortOrder,
+function TopicDropdown({
+    topic,
+    setTopic,
+    topics,
 }: {
-  sortOrder: string;
-  setSortOrder: (v: string) => void;
+    topic: Topic;
+    setTopic: (t: Topic) => void;
+    topics: Topic[];
 }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+    useEffect(() => {
+        const onDocClick = (e: MouseEvent) => {
+            if (!ref.current) return;
+            if (open && !ref.current.contains(e.target as Node)) setOpen(false);
+        };
+        document.addEventListener("mousedown", onDocClick);
+        return () => document.removeEventListener("mousedown", onDocClick);
+    }, [open]);
+
+    const onSelect = (t: Topic) => {
+        setTopic(t);
         setOpen(false);
-      }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
 
-  const selectOrder = (order: "ASC" | "DESC") => {
-    setSortOrder(order);
-    setOpen(false);
-  };
+    return (
+        <div className="relative" ref={ref}>
+            <button
+                aria-haspopup="listbox"
+                aria-expanded={open}
+                onClick={() => setOpen((v) => !v)}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700/60 shadow-sm hover:bg-blue-50 dark:hover:bg-slate-600 text-sm transition-all"
+            >
+                <span>Temática:</span>
+                <span className="font-medium text-blue-700 dark:text-blue-400">{topic}</span>
+                <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    className={`transition ${open ? "rotate-180" : ""}`}
+                >
+                    <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+            </button>
 
-  return (
-    <div className="relative w-full flex justify-end" ref={ref}>
-      <button
-        className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-sm flex items-center gap-2 shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700 transition"
-        onClick={() => setOpen(!open)}
-      >
-        Ordenar:
-        <span className="font-medium text-blue-600 dark:text-blue-400">
-          {sortOrder === "DESC" ? "Más reciente" : "Más antiguo"}
-        </span>
-
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 24 24"
-          className={`transition ${open ? "rotate-180" : ""}`}
-        >
-          <path
-            d="M6 9l6 6 6-6"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-          />
-        </svg>
-      </button>
-
-      {open && (
-        <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden z-50">
-          <button
-            onClick={() => selectOrder("DESC")}
-            className={`w-full text-left px-4 py-2 text-sm transition ${
-              sortOrder === "DESC"
-                ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
-                : "hover:bg-gray-100 dark:hover:bg-slate-700"
-            }`}
-          >
-            Más reciente
-          </button>
-
-          <button
-            onClick={() => selectOrder("ASC")}
-            className={`w-full text-left px-4 py-2 text-sm transition ${
-              sortOrder === "ASC"
-                ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
-                : "hover:bg-gray-100 dark:hover:bg-slate-700"
-            }`}
-          >
-            Más antiguo
-          </button>
+            {open && (
+                <ul
+                    role="listbox"
+                    aria-label="Seleccionar temàtica"
+                    className="absolute z-40 mt-2 w-56 bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 rounded-xl shadow-xl p-1 backdrop-blur-sm"
+                >
+                    {topics.map((t) => {
+                        const active = t === topic;
+                        return (
+                            <li key={t}>
+                                <button
+                                    role="option"
+                                    aria-selected={active}
+                                    onClick={() => onSelect(t)}
+                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                                        active
+                                            ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 font-medium"
+                                            : "hover:bg-blue-50 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-200"
+                                    }`}
+                                >
+                                    {t}
+                                </button>
+                            </li>
+                        );
+                    })}
+                </ul>
+            )}
         </div>
-      )}
-    </div>
-  );
+    );
+}
+
+function FeedFilters({
+    sortOrder,
+    setSortOrder,
+}: {
+    sortOrder: string;
+    setSortOrder: (v: string) => void;
+}) {
+    const [open, setOpen] = useState(false);
+    const ref = useRef<HTMLDivElement | null>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) {
+                setOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    const selectOrder = (order: "ASC" | "DESC") => {
+        setSortOrder(order);
+        setOpen(false);
+    };
+
+    return (
+        <div className="relative w-full flex justify-end" ref={ref}>
+            <button
+                className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-sm flex items-center gap-2 shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700 transition"
+                onClick={() => setOpen(!open)}
+            >
+                Ordenar:
+                <span className="font-medium text-blue-600 dark:text-blue-400">
+                    {sortOrder === "DESC" ? "Más reciente" : "Más antiguo"}
+                </span>
+
+                <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    className={`transition ${open ? "rotate-180" : ""}`}
+                >
+                    <path
+                        d="M6 9l6 6 6-6"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                    />
+                </svg>
+            </button>
+
+            {open && (
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-xl shadow-lg overflow-hidden z-50">
+                    <button
+                        onClick={() => selectOrder("DESC")}
+                        className={`w-full text-left px-4 py-2 text-sm transition ${
+                            sortOrder === "DESC"
+                                ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
+                                : "hover:bg-gray-100 dark:hover:bg-slate-700"
+                        }`}
+                    >
+                        Más reciente
+                    </button>
+
+                    <button
+                        onClick={() => selectOrder("ASC")}
+                        className={`w-full text-left px-4 py-2 text-sm transition ${
+                            sortOrder === "ASC"
+                                ? "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
+                                : "hover:bg-gray-100 dark:hover:bg-slate-700"
+                        }`}
+                    >
+                        Más antiguo
+                    </button>
+                </div>
+            )}
+        </div>
+    );
 }

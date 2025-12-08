@@ -11,7 +11,8 @@ class Post(db.Model):
     text = db.Column(db.Text, nullable=False)
     image_url = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    liked_by = db.relationship( 
+    repost_count = db.Column(db.Integer, default=0)
+    liked_by = db.relationship(
         "User",
         secondary="post_like",
         back_populates="liked_posts",
@@ -32,6 +33,7 @@ class Post(db.Model):
                 "name": self.author.name,
             },
             "likes": self.liked_by.count(),
+            "reposts":self.repost_count,
         "likedByMe": (
             self.liked_by.filter_by(id=current_user_id).count() > 0
             if current_user_id else False
