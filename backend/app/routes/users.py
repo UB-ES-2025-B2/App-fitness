@@ -150,3 +150,19 @@ def unfollow_user(current_user, user_id):
         current_user.following.remove(target)
         db.session.commit()
     return jsonify({"ok": True, "is_following": False})
+
+@bp.get("/<int:user_id>/bookmarks")
+@token_required
+def get_user_bookmarks(current_user, user_id):
+    """
+    Devuelve los posts guardados por el usuario.
+    Solo permitimos que cada uno vea sus propios guardados.
+    """
+    if current_user.id != user_id:
+        return jsonify({"error": "No tienes permiso para ver estos guardados"}), 403
+
+    posts = current_user.bookmarked_posts.order_by(Post.created_at.desc()).all()
+    return jsonify([
+        p.to_dict(current_user_id=current_user.id)
+        for p in posts
+    ]), 200

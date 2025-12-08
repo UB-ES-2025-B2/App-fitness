@@ -1,7 +1,7 @@
 from datetime import timezone
 from flask import Blueprint, jsonify, request, g, current_app
 import jwt
-from app.models import Repost, User, Post, Report
+from app.models import Repost, User, Post, Report, Bookmark
 from app import db
 from app.utils.auth_utils import token_required
 from sqlalchemy.exc import IntegrityError
@@ -225,6 +225,47 @@ def unlike_post(current_user, post_id):
 def get_my_liked_posts(current_user):
     liked_posts = current_user.liked_posts.order_by(Post.created_at.desc()).all()
     return jsonify([p.to_dict(current_user_id=current_user.id) for p in liked_posts]), 200
+
+@bp.post("/<int:post_id>/bookmark")
+@token_required
+def bookmark_post(current_user, post_id):
+    """
+    Marca un post como guardado para el usuario actual.
+    """
+    post = Post.query.get(post_id)
+    if not post:
+        return jsonify({"error": "Post not found"}), 404
+
+    # Si aún no está guardado, lo añadimos
+    if not post.bookmarked_by.filter_by(id=current_user.id).first():
+        post.bookmarked_by.append(current_user)
+        db.session.commit()
+
+    return jsonify({
+        "message": "Bookmarked",
+        "bookmarked": True
+    }), 200
+
+
+@bp.delete("/<int:post_id>/bookmark")
+@token_required
+def unbookmark_post(current_user, post_id):
+    """
+    Elimina el bookmark del post para el usuario actual.
+    """
+    post = Post.query.get(post_id)
+    if not post:
+        return jsonify({"error": "Post not found"}), 404
+
+    rel = post.bookmarked_by.filter_by(id=current_user.id).first()
+    if rel:
+        post.bookmarked_by.remove(current_user)
+        db.session.commit()
+
+    return jsonify({
+        "message": "Unbookmarked",
+        "bookmarked": False
+    }), 200
 
 
 @bp.route("/posts", methods=["GET"])

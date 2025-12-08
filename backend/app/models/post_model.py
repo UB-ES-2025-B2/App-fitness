@@ -18,6 +18,12 @@ class Post(db.Model):
         back_populates="liked_posts",
         lazy="dynamic",
     )
+    bookmarked_by = db.relationship(
+        "User",
+        secondary="bookmark",
+        back_populates="bookmarked_posts",
+        lazy="dynamic",
+    )
 
     def to_dict(self, current_user_id=None):
         return {
@@ -38,5 +44,9 @@ class Post(db.Model):
             self.liked_by.filter_by(id=current_user_id).count() > 0
             if current_user_id else False
         ),
+        "bookmarkedByMe": (
+                self.bookmarked_by.filter_by(id=current_user_id).count() > 0
+                if current_user_id else False
+            ),
         }
     
