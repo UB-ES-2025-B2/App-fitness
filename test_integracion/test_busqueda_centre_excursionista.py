@@ -13,7 +13,7 @@ def test_busqueda_usuario(driver):
     time.sleep(1)
 
     login.login("toni@example.com", "app-fitness1")
-    time.sleep(3)
+    time.sleep(15)
 
 
     home.buscar("Centre Excursionista Puigcastellar")
