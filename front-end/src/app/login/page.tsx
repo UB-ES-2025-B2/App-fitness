@@ -70,11 +70,11 @@ export default function LoginPage() {
       // 4️⃣ Guardamos el usuario correcto (incluye avatar_url)
       localStorage.setItem("ubfitness_user", JSON.stringify(meUser));
 
-      // 5️⃣ Avisamos al Header
+      
       window.dispatchEvent(new Event("user-updated"));
 
-      // 6️⃣ Redirigimos
-      router.push("/comunidades");
+     
+      router.push("/");
 
     } catch (err) {
       console.error("Error al iniciar sesión:", err);
