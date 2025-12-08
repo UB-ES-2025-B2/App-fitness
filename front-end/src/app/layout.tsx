@@ -6,6 +6,7 @@ import { TopicProvider } from "./components/TopicContext";
 import AddPostButton from "./components/AddPostButton";
 import NutritionButton from "./components/NutritionButton";
 import LogInButton from "./components/LogInButton";
+import NutritionChat from "./components/NutritionChat";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main className="pt-20">{children}</main>
           <AddPostButton />
           <NutritionButton />
+          <NutritionChat />
         </TopicProvider>
       </body>
     </html>

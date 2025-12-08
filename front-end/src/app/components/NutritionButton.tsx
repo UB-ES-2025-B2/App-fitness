@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
 
 export default function NutritionButton() {
   const [isLogged, setIsLogged] = useState(false);
@@ -23,20 +22,27 @@ export default function NutritionButton() {
   // ❌ Si NO està loguejat → no es mostra el botó
   if (!isLogged) return null;
 
+  const openChat = () => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("toggle-nutri-chat"));
+    }
+  };
+
   return (
-    <Link
-      href="/nutricion"
-      aria-label="Ir a la pestaña de Nutrición"
-      className="fixed bottom-24 right-6 z-[55] rounded-full bg-white shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+    <button
+      type="button"
+      onClick={openChat}
+      aria-label="Abrir chat Nutricionista IA"
+      className="fixed bottom-24 right-6 z-[55] rounded-full bg-white shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-400"
     >
       <Image
         src="/images/GoToNutrition.png"
-        alt="Ir a Nutrición"
+        alt="Abrir chat Nutricionista IA"
         width={64}
         height={64}
         className="rounded-full"
         priority
       />
-    </Link>
+    </button>
   );
 }

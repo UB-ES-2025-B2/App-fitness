@@ -18,9 +18,13 @@ export default function CommunityLayout({
             <Link href="/comunidades" className="hover:text-gray-300">
               Comunidades
             </Link>
-            <Link href="/nutricion" className="hover:text-gray-300">
-              Nutrición
-            </Link>
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event("toggle-nutri-chat"))}
+              className="hover:text-gray-300"
+            >
+              Nutricionista IA
+            </button>
             <Link href="/perfil" className="hover:text-gray-300">
               Mi Perfil
             </Link>
