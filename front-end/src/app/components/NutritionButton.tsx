@@ -2,25 +2,33 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
-import { usePathname } from "next/navigation"; // <-- IMPORTANTE
+import { usePathname } from "next/navigation";
 
 export default function NutritionButton() {
   const [isLogged, setIsLogged] = useState(false);
-  const pathname = usePathname(); // <-- PARA SABER LA RUTA
+  const pathname = usePathname();
 
   useEffect(() => {
-    const raw = localStorage.getItem("ubfitness_tokens");
-    if (raw) {
-      try {
-        const parsed = JSON.parse(raw);
-        if (parsed.access_token) setIsLogged(true);
-      } catch {
+    const checkLogin = () => {
+      const raw = localStorage.getItem("ubfitness_tokens");
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw);
+          setIsLogged(!!parsed.access_token);
+        } catch {
+          setIsLogged(false);
+        }
+      } else {
         setIsLogged(false);
       }
-    }
+    };
+
+    checkLogin();
+    window.addEventListener("user-updated", checkLogin);
+
+    return () => window.removeEventListener("user-updated", checkLogin);
   }, []);
 
-  // Rutas donde NO debe mostrarse el botón
   const hiddenOn = [
     "/login",
     "/registration",
@@ -28,15 +36,12 @@ export default function NutritionButton() {
     "/verify-email-start",
   ];
 
-
   if (!isLogged || hiddenOn.includes(pathname)) {
     return null;
   }
 
   const openChat = () => {
-    if (typeof window !== "undefined") {
-      window.dispatchEvent(new Event("toggle-nutri-chat"));
-    }
+    window.dispatchEvent(new Event("toggle-nutri-chat"));
   };
 
   return (
