@@ -169,6 +169,13 @@ async function fetchUserPosts(userId: number): Promise<ApiPost[]> {
   return data.map(normalizeUserPost);
 }
 
+async function fetchUserBookmarks(userId: number): Promise<ApiPost[]> {
+  const res = await authFetch(`${API_BASE}/api/users/${userId}/bookmarks`);
+  if (!res.ok) return [];
+  const data: BackendPost[] = await res.json();
+  return data.map(normalizeUserPost);
+}
+
 
 type Profile = {
   nombre: string;
@@ -199,6 +206,8 @@ const INITIAL_PROFILE: Profile = {
 type TopicFilter = "ALL" | "Fútbol" | "Básquet" | "Montaña";
 type DateFilter = "ALL" | "DAY" | "MONTH" | "YEAR";
 type SortOrder = "DESC" | "ASC";
+type Tab = "POSTS" | "BOOKMARKS";
+
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -214,6 +223,10 @@ export default function ProfilePage() {
   const [posts, setPosts] = useState<ApiPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(true);
 
+  const [bookmarkedPosts, setBookmarkedPosts] = useState<ApiPost[]>([]);
+  const [bookmarksLoading, setBookmarksLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>("POSTS");
+
   const [topicFilter, setTopicFilter] = useState<TopicFilter>("ALL");
   const [dateFilter, setDateFilter] = useState<DateFilter>("ALL");
   const [sortOrder, setSortOrder] = useState<SortOrder>("DESC");
@@ -226,6 +239,55 @@ export default function ProfilePage() {
 
   const cancelDeletePost = () => {
     setPostToDelete(null);
+  };
+  const handleUnbookmark = async (post: ApiPost) => {
+    const postId = post.type === "repost" && post.originalPost
+      ? post.originalPost.id
+      : post.id;
+
+    try {
+      const res = await authFetch(`${API_BASE}/api/posts/${postId}/bookmark`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("Error al quitar de guardados:", text);
+        alert("No se pudo quitar de guardados");
+        return;
+      }
+
+      setBookmarkedPosts((prev) =>
+        prev.filter((p) => {
+          const id = p.type === "repost" && p.originalPost ? p.originalPost.id : p.id;
+          return id !== postId;
+        })
+      );
+
+      setPosts((prev) =>
+        prev.map((p) => {
+          const isOriginal = p.id === postId && p.type === "original";
+          const isRepost = p.type === "repost" && p.originalPost?.id === postId;
+
+          if (isOriginal) {
+            return { ...p, bookmarkedByMe: false };
+          }
+          if (isRepost && p.originalPost) {
+            return {
+              ...p,
+              originalPost: {
+                ...p.originalPost,
+                bookmarkedByMe: false,
+              },
+            };
+          }
+          return p;
+        })
+      );
+    } catch (err) {
+      console.error("Error de red al quitar de guardados:", err);
+      alert("Error de red al quitar de guardados");
+    }
   };
 
   const confirmDeletePost = async () => {
@@ -268,7 +330,9 @@ export default function ProfilePage() {
 
 
   const visiblePosts = (() => {
-    if (!posts || posts.length === 0) return [];
+    const source = activeTab === "POSTS" ? posts : bookmarkedPosts;
+
+    if (!source || source.length === 0) return [];
 
     const now = new Date();
 
@@ -298,7 +362,7 @@ export default function ProfilePage() {
       return true;
     };
 
-    return [...posts]
+    return [...source]
       .filter((p) => {
         const topic = p.topic || "";
         if (topicFilter !== "ALL" && topic !== topicFilter) return false;
@@ -386,14 +450,21 @@ export default function ProfilePage() {
         }
 
         setPostsLoading(true);
+        setBookmarksLoading(true);
         try {
-          const userPosts = await fetchUserPosts(me.id);
+          const [userPosts, userBookmarks] = await Promise.all([
+            fetchUserPosts(me.id),
+            fetchUserBookmarks(me.id),
+          ]);
           setPosts(userPosts);
+          setBookmarkedPosts(userBookmarks);
         } catch (e) {
           console.error(e);
           setPosts([]);
+          setBookmarkedPosts([]);
         } finally {
           setPostsLoading(false);
+          setBookmarksLoading(false);
         }
 
       } catch (error) {
@@ -489,8 +560,34 @@ export default function ProfilePage() {
       </section>
 
       <section>
+        <div className="mb-3 flex gap-2 border-b">
+          <button
+            type="button"
+            onClick={() => setActiveTab("POSTS")}
+            className={
+              "px-4 py-2 text-sm border-b-2 -mb-[1px] " +
+              (activeTab === "POSTS"
+                ? "border-blue-600 text-blue-600 font-semibold"
+                : "border-transparent text-gray-500 hover:text-gray-800")
+            }
+          >
+            Mis publicaciones
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("BOOKMARKS")}
+            className={
+              "px-4 py-2 text-sm border-b-2 -mb-[1px] " +
+              (activeTab === "BOOKMARKS"
+                ? "border-blue-600 text-blue-600 font-semibold"
+                : "border-transparent text-gray-500 hover:text-gray-800")
+            }
+          >
+            Guardados
+          </button>
+        </div>
         <div className="space-y-4">
-          {!postsLoading && posts.length > 0 && (
+          {visiblePosts.length > 0 && (
             <PostFilters
               topicFilter={topicFilter}
               setTopicFilter={setTopicFilter}
@@ -501,12 +598,18 @@ export default function ProfilePage() {
             />
           )}
 
-          {postsLoading && (
+          {activeTab === "POSTS" && postsLoading && (
             <p className="text-center text-gray-500">Cargando publicaciones…</p>
           )}
+          {activeTab === "BOOKMARKS" && bookmarksLoading && (
+            <p className="text-center text-gray-500">Cargando guardados…</p>
+          )}
 
-          {!postsLoading && posts.length === 0 && (
+          {activeTab === "POSTS" && !postsLoading && posts.length === 0 && (
             <p className="text-center text-gray-500">Aún no hay publicaciones.</p>
+          )}
+          {activeTab === "BOOKMARKS" && !bookmarksLoading && bookmarkedPosts.length === 0 && (
+            <p className="text-center text-gray-500">Aún no has guardado publicaciones.</p>
           )}
 
           {!postsLoading && visiblePosts.length > 0 && (
@@ -516,13 +619,24 @@ export default function ProfilePage() {
                   key={p.id + p.type + (p.repostedById || 0)}
                   className="bg-white rounded-2xl shadow-md p-4 relative"
                 >
-                  <button
-                    type="button"
-                    onClick={() => askDeletePost(p.id, p.type, p.originalPost?.id)}
-                    className="absolute -top-3 right-3 text-xs px-2 py-1 rounded-full bg-red-600 text-white hover:bg-red-700 shadow"
-                  >
-                    Eliminar
-                  </button>
+                  {activeTab === "POSTS" && (
+                    <button
+                      type="button"
+                      onClick={() => askDeletePost(p.id, p.type, p.originalPost?.id)}
+                      className="absolute -top-3 right-3 text-xs px-2 py-1 rounded-full bg-red-600 text-white hover:bg-red-700 shadow"
+                    >
+                      Eliminar
+                    </button>
+                  )}
+                  {activeTab === "BOOKMARKS" && (
+                    <button
+                      type="button"
+                      onClick={() => handleUnbookmark(p)}
+                      className="absolute -top-3 right-3 text-xs px-2 py-1 rounded-full bg-amber-500 text-white hover:bg-amber-600 shadow"
+                    >
+                      Quitar de guardados
+                    </button>
+                  )}
 
                   {postToDelete && postToDelete.id === p.id && (
                     <div className="mt-3 p-3 border border-red-200 bg-red-50 rounded-xl text-sm text-red-800">
@@ -681,6 +795,8 @@ function SettingsDropdown({
             </div>
 
             <Input label="Username" value={form.username} onChange={(v) => setForm({ ...form, username: v })} prefix="@" />
+
+
 
             <div className="grid grid-cols-2 gap-2">
               <Input type="date" label="Fecha de nacimiento" value={form.fechaNacimiento} onChange={(v) => setForm({ ...form, fechaNacimiento: v })} />

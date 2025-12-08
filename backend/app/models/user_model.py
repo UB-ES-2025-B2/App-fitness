@@ -47,6 +47,12 @@ class User(db.Model):
         cascade="all, delete-orphan",
         lazy="dynamic",
     )
+    bookmarked_posts = db.relationship(
+        "Post",
+        secondary="bookmark",
+        back_populates="bookmarked_by",
+        lazy="dynamic",
+    )
 
     def set_password(self, password):
         self.password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')

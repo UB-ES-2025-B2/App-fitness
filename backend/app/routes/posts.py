@@ -1,7 +1,7 @@
 from datetime import timezone
 from flask import Blueprint, jsonify, request, g, current_app
 import jwt
-from app.models import Repost, User, Post, Report
+from app.models import Repost, User, Post, Report, Bookmark
 from app import db
 from app.utils.auth_utils import token_required
 from sqlalchemy.exc import IntegrityError
@@ -225,6 +225,56 @@ def unlike_post(current_user, post_id):
 def get_my_liked_posts(current_user):
     liked_posts = current_user.liked_posts.order_by(Post.created_at.desc()).all()
     return jsonify([p.to_dict(current_user_id=current_user.id) for p in liked_posts]), 200
+
+@bp.post("/<int:post_id>/bookmark")
+@token_required
+def bookmark_post(current_user, post_id):
+    post = Post.query.get(post_id)
+    if not post:
+        return jsonify({"error": "Post not found"}), 404
+
+    # 1) Check if it already exists
+    existing = Bookmark.query.filter_by(
+        user_id=current_user.id,
+        post_id=post_id
+    ).first()
+
+    if existing:
+        # Already bookmarked → no error, just confirm state
+        return jsonify({"bookmarked": True}), 200
+
+    # 2) Create new bookmark
+    bm = Bookmark(user_id=current_user.id, post_id=post_id)
+    db.session.add(bm)
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        # In case of a race condition, just return "bookmarked"
+        return jsonify({"bookmarked": True}), 200
+
+    return jsonify({"bookmarked": True}), 200
+
+@bp.delete("/<int:post_id>/bookmark")
+@token_required
+def unbookmark_post(current_user, post_id):
+    post = Post.query.get(post_id)
+    if not post:
+        return jsonify({"error": "Post not found"}), 404
+
+    existing = Bookmark.query.filter_by(
+        user_id=current_user.id,
+        post_id=post_id
+    ).first()
+
+    if not existing:
+        # Nothing to delete, but that's fine
+        return jsonify({"bookmarked": False}), 200
+
+    db.session.delete(existing)
+    db.session.commit()
+    return jsonify({"bookmarked": False}), 200
 
 
 @bp.route("/posts", methods=["GET"])
