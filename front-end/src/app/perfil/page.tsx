@@ -70,11 +70,11 @@ type BackendPost = {
 
   timestamp?: string | null;
 
-  type?: 'original' | 'repost'; 
+  type?: 'original' | 'repost';
   likes?: number;
   liked?: boolean;
   likedByMe?: boolean;
-  reposts?: number; 
+  reposts?: number;
   comment_text?: string | null;
   reposted_by?: { id: number; username: string; name?: string | null } | null;
   original_content?: BackendPost;
@@ -101,7 +101,7 @@ type ApiPost = OriginalContent & {
   repostedBy?: string;
   repostedById?: number;
   repostComment?: string;
-  originalPost?: OriginalContent; 
+  originalPost?: OriginalContent;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
@@ -109,7 +109,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
 function normalizeUserPost(p: BackendPost): ApiPost {
   const isRepost = p.type === 'repost';
   let sourcePost = p;
-  
+
   if (isRepost && p.original_content) {
     sourcePost = p.original_content;
   }
@@ -128,8 +128,8 @@ function normalizeUserPost(p: BackendPost): ApiPost {
     sourcePost.date ||
     sourcePost.created_at ||
     sourcePost.timestamp ||
-    new Date().toISOString(); 
-    
+    new Date().toISOString();
+
   const originalData: OriginalContent = {
     id: sourcePost.id,
     text: sourcePost.text,
@@ -147,7 +147,7 @@ function normalizeUserPost(p: BackendPost): ApiPost {
     const reposterName = p.reposted_by?.name || p.reposted_by?.username || "Tú";
     const reposterId = p.reposted_by?.id;
     const repostComment = p.comment_text ?? undefined;
-    
+
     return {
       ...originalData,
       type: 'repost',
@@ -155,7 +155,7 @@ function normalizeUserPost(p: BackendPost): ApiPost {
       repostedById: reposterId,
       repostComment: repostComment,
       originalPost: originalData,
-      date: p.created_at || p.date || originalData.date, 
+      date: p.created_at || p.date || originalData.date,
     } as ApiPost;
   }
 
@@ -207,7 +207,7 @@ export default function ProfilePage() {
 
   const [followersList, setFollowersList] = useState<UserSummary[]>([]);
   const [followingList, setFollowingList] = useState<UserSummary[]>([]);
-  
+
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState<"followers" | "following">("followers");
 
@@ -236,10 +236,10 @@ export default function ProfilePage() {
       let idToDelete = postToDelete.id;
 
       if (postToDelete.type === 'repost' && postToDelete.originalId) {
-          endpoint = `${API_BASE}/api/posts/${postToDelete.originalId}/repost`;
-          idToDelete = postToDelete.originalId;
+        endpoint = `${API_BASE}/api/posts/${postToDelete.originalId}/repost`;
+        idToDelete = postToDelete.originalId;
       } else {
-          endpoint = `${API_BASE}/api/posts/${postToDelete.id}`;
+        endpoint = `${API_BASE}/api/posts/${postToDelete.id}`;
       }
 
       const res = await authFetch(endpoint, {
@@ -256,7 +256,7 @@ export default function ProfilePage() {
       setPosts((prev) => prev.filter((p) => {
         if (p.type === 'original' && p.id === idToDelete) return false;
         if (p.type === 'repost' && p.originalPost?.id === idToDelete) return false;
-        
+
         return true;
       }));
       setPostToDelete(null);
@@ -268,49 +268,49 @@ export default function ProfilePage() {
 
 
   const visiblePosts = (() => {
-  if (!posts || posts.length === 0) return [];
+    if (!posts || posts.length === 0) return [];
 
-  const now = new Date();
+    const now = new Date();
 
-  const passesDateFilter = (dateStr: string) => {
-    if (dateFilter === "ALL") return true;
+    const passesDateFilter = (dateStr: string) => {
+      if (dateFilter === "ALL") return true;
 
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return true;
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return true;
 
-    if (dateFilter === "DAY") {
-      const oneDayMs = 24 * 60 * 60 * 1000;
-      return now.getTime() - d.getTime() <= oneDayMs;
-    }
+      if (dateFilter === "DAY") {
+        const oneDayMs = 24 * 60 * 60 * 1000;
+        return now.getTime() - d.getTime() <= oneDayMs;
+      }
 
-    if (dateFilter === "MONTH") {
-      const monthAgo = new Date();
-      monthAgo.setMonth(monthAgo.getMonth() - 1);
-      return d >= monthAgo;
-    }
+      if (dateFilter === "MONTH") {
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        return d >= monthAgo;
+      }
 
-    if (dateFilter === "YEAR") {
-      const yearAgo = new Date();
-      yearAgo.setFullYear(yearAgo.getFullYear() - 1);
-      return d >= yearAgo;
-    }
+      if (dateFilter === "YEAR") {
+        const yearAgo = new Date();
+        yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+        return d >= yearAgo;
+      }
 
-    return true;
-  };
+      return true;
+    };
 
-  return [...posts]
-    .filter((p) => {
-      const topic = p.topic || "";
-      if (topicFilter !== "ALL" && topic !== topicFilter) return false;
-      return passesDateFilter(p.date ?? "");
-    })
-    .sort((a, b) => {
-      const da = new Date(a.date?? "").getTime();
-      const db = new Date(b.date?? "").getTime();
-      if (isNaN(da) || isNaN(db)) return 0;
-      return sortOrder === "DESC" ? db - da : da - db;
-    });
-})();
+    return [...posts]
+      .filter((p) => {
+        const topic = p.topic || "";
+        if (topicFilter !== "ALL" && topic !== topicFilter) return false;
+        return passesDateFilter(p.date ?? "");
+      })
+      .sort((a, b) => {
+        const da = new Date(a.date ?? "").getTime();
+        const db = new Date(b.date ?? "").getTime();
+        if (isNaN(da) || isNaN(db)) return 0;
+        return sortOrder === "DESC" ? db - da : da - db;
+      });
+  })();
 
 
   useEffect(() => {
@@ -363,8 +363,8 @@ export default function ProfilePage() {
         avatarUrl: me.avatar_url ?? undefined,
         temas: Array.isArray(me.preferences)
           ? (me.preferences as string[]).filter((t) =>
-              ["Fútbol", "Básquet", "Montaña"].includes(t)
-            ) as Array<"Fútbol" | "Básquet" | "Montaña">
+            ["Fútbol", "Básquet", "Montaña"].includes(t)
+          ) as Array<"Fútbol" | "Básquet" | "Montaña">
           : [],
         ocultarInfo: typeof me.ocultar_info === "boolean" ? me.ocultar_info : true,
       });
@@ -379,7 +379,7 @@ export default function ProfilePage() {
           const followersData = await followersRes.json();
           setFollowersList(followersData);
         }
-        
+
         if (followingRes.ok) {
           const followingData = await followingRes.json();
           setFollowingList(followingData);
@@ -406,28 +406,44 @@ export default function ProfilePage() {
 
 
   if (loading) return <p className="p-6">Cargando perfil…</p>;
-  
+
   const PH = "Aún no almacenado";
   const show = (v?: string) => (v && v.trim() ? v : PH);
   const fullName =
-  [profile.nombre, profile.apellido1, profile.apellido2]
-    .filter(Boolean)
-    .join(" ")
-    .trim() || PH;
+    [profile.nombre, profile.apellido1, profile.apellido2]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || PH;
 
   return (
     <div className="max-w-3xl mx-auto px-4 lg:px-0 py-6">
       <section className="bg-white rounded-2xl shadow-md p-5 mb-6 relative">
-        
+
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <ProfileAvatar
               value={profile.avatarUrl}
               onChange={async (url) => {
+                // 1. Actualizamos estado visual inmediato en la página de perfil
                 setProfile((p) => ({ ...p, avatarUrl: url }));
+
                 try {
+                  // 2. Enviamos al Backend para guardar en BD
                   await updateMe({ avatar_url: url || null });
+
+                  // 3. ¡IMPORTANTE! Actualizamos localStorage para el Header
+                  const storedUser = localStorage.getItem("ubfitness_user");
+                  if (storedUser) {
+                    const userObj = JSON.parse(storedUser);
+                    userObj.avatar_url = url; // Actualizamos la URL en el objeto guardado
+                    localStorage.setItem("ubfitness_user", JSON.stringify(userObj));
+
+                    // 4. Disparamos evento para forzar al Header a recargar la info
+                    window.dispatchEvent(new Event("user-updated")); // Evento personalizado
+                  }
+
                 } catch (e) {
+                  // Si falla, revertimos el cambio visual
                   setProfile((p) => ({ ...p, avatarUrl: undefined }));
                   alert((e as Error).message);
                 }
@@ -451,7 +467,7 @@ export default function ProfilePage() {
 
         <div className="mt-4 grid grid-cols-3 divide-x rounded-lg bg-gray-50">
           <Stat label="Publicaciones" value={posts.length} />
-          <div 
+          <div
             className="cursor-pointer hover:bg-gray-100 transition-colors rounded-lg"
             onClick={() => {
               setModalType("followers");
@@ -460,7 +476,7 @@ export default function ProfilePage() {
           >
             <Stat label="Seguidores" value={followersList.length} />
           </div>
-          <div 
+          <div
             className="cursor-pointer hover:bg-gray-100 transition-colors rounded-lg"
             onClick={() => {
               setModalType("following");
@@ -484,7 +500,7 @@ export default function ProfilePage() {
               setSortOrder={setSortOrder}
             />
           )}
-          
+
           {postsLoading && (
             <p className="text-center text-gray-500">Cargando publicaciones…</p>
           )}
@@ -496,82 +512,82 @@ export default function ProfilePage() {
           {!postsLoading && visiblePosts.length > 0 && (
             <>
               {visiblePosts.map((p) => (
-                <article 
-                  key={p.id + p.type + (p.repostedById || 0)} 
+                <article
+                  key={p.id + p.type + (p.repostedById || 0)}
                   className="bg-white rounded-2xl shadow-md p-4 relative"
                 >
-                    <button
-                      type="button"
-                      onClick={() => askDeletePost(p.id, p.type, p.originalPost?.id)}
-                      className="absolute -top-3 right-3 text-xs px-2 py-1 rounded-full bg-red-600 text-white hover:bg-red-700 shadow"
-                    >
-                      Eliminar
-                    </button>
-                    
-                    {postToDelete && postToDelete.id === p.id && (
-                        <div className="mt-3 p-3 border border-red-200 bg-red-50 rounded-xl text-sm text-red-800">
-                            <p className="mb-2 font-semibold">
-                                ¿Seguro que quieres eliminar esta publicación?
-                            </p>
-                            <div className="flex justify-end gap-2">
-                                <button
-                                    type="button"
-                                    onClick={cancelDeletePost}
-                                    className="px-3 py-1 rounded-lg text-xs bg-white border border-red-200 hover:bg-red-100"
-                                >
-                                    Cancelar
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={confirmDeletePost}
-                                    className="px-3 py-1 rounded-lg text-xs bg-red-600 text-white hover:bg-red-700"
-                                >
-                                    Confirmar
-                                </button>
-                            </div>
-                        </div>
-                    )}
-                    
-                    {p.type === 'repost' && (
-                        <div className="mb-2 flex items-center gap-2 text-sm text-gray-500">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-green-500"><path fillRule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.355 4.5 4.5 0 0 0 4.5 0 7.5 7.5 0 0 1-12.548 3.355Z" clipRule="evenodd" /><path d="M18.75 12a.75.75 0 0 0 0 1.5h.008a.75.75 0 0 0 0-1.5H18.75Z" /><path fillRule="evenodd" d="M4.5 12.75a7.5 7.5 0 0 1 12.548-3.355 4.5 4.5 0 0 0 4.5 0 7.5 7.5 0 0 1-12.548 3.355ZM18.75 15a.75.75 0 0 0 0 1.5h.008a.75.75 0 0 0 0-1.5H18.75Z" clipRule="evenodd" /></svg>
-                            <p>
-                                Recompartido por{' '}
-                                <span className="font-semibold text-gray-800">
-                                    {p.repostedBy}
-                                </span>
-                            </p>
-                        </div>
-                    )}
-                    
-                    {p.type === 'repost' && p.repostComment && (
-                        <p className="mb-4 italic text-gray-600 border-l-4 border-blue-500 pl-3">
-                            `{p.repostComment}`
-                        </p>
-                    )}
-                    
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-medium">
-                        {p.type === 'original' ? (profile.nombre || profile.username || "Tú") : (p.originalPost?.user || 'Usuario')}
-                      </h3>
-                      <span className="text-xs text-gray-500">
-                        {p.type === 'original' ? p.topic ?? "General" : p.originalPost?.topic ?? "General"} ·{" "}
-                        {new Date(p.date?? "").toLocaleDateString("es-ES", {
-                          day: "2-digit",
-                          month: "2-digit",
-                          year: "numeric",
-                        })}
-                      </span>
-                    </div>
+                  <button
+                    type="button"
+                    onClick={() => askDeletePost(p.id, p.type, p.originalPost?.id)}
+                    className="absolute -top-3 right-3 text-xs px-2 py-1 rounded-full bg-red-600 text-white hover:bg-red-700 shadow"
+                  >
+                    Eliminar
+                  </button>
 
-                    <p className="mt-2 text-gray-700">{p.type === 'original' ? p.text : p.originalPost?.text}</p>
-                    {(p.type === 'original' ? p.image : p.originalPost?.image) && (
-                      <img
-                        src={p.type === 'original' ? p.image : p.originalPost?.image || ''}
-                        alt={p.topic ?? "Post"}
-                        className="mt-3 rounded-xl w-full h-56 object-cover"
-                      />
-                    )}
+                  {postToDelete && postToDelete.id === p.id && (
+                    <div className="mt-3 p-3 border border-red-200 bg-red-50 rounded-xl text-sm text-red-800">
+                      <p className="mb-2 font-semibold">
+                        ¿Seguro que quieres eliminar esta publicación?
+                      </p>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={cancelDeletePost}
+                          className="px-3 py-1 rounded-lg text-xs bg-white border border-red-200 hover:bg-red-100"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={confirmDeletePost}
+                          className="px-3 py-1 rounded-lg text-xs bg-red-600 text-white hover:bg-red-700"
+                        >
+                          Confirmar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {p.type === 'repost' && (
+                    <div className="mb-2 flex items-center gap-2 text-sm text-gray-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-green-500"><path fillRule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.355 4.5 4.5 0 0 0 4.5 0 7.5 7.5 0 0 1-12.548 3.355Z" clipRule="evenodd" /><path d="M18.75 12a.75.75 0 0 0 0 1.5h.008a.75.75 0 0 0 0-1.5H18.75Z" /><path fillRule="evenodd" d="M4.5 12.75a7.5 7.5 0 0 1 12.548-3.355 4.5 4.5 0 0 0 4.5 0 7.5 7.5 0 0 1-12.548 3.355ZM18.75 15a.75.75 0 0 0 0 1.5h.008a.75.75 0 0 0 0-1.5H18.75Z" clipRule="evenodd" /></svg>
+                      <p>
+                        Recompartido por{' '}
+                        <span className="font-semibold text-gray-800">
+                          {p.repostedBy}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+
+                  {p.type === 'repost' && p.repostComment && (
+                    <p className="mb-4 italic text-gray-600 border-l-4 border-blue-500 pl-3">
+                      `{p.repostComment}`
+                    </p>
+                  )}
+
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-medium">
+                      {p.type === 'original' ? (profile.nombre || profile.username || "Tú") : (p.originalPost?.user || 'Usuario')}
+                    </h3>
+                    <span className="text-xs text-gray-500">
+                      {p.type === 'original' ? p.topic ?? "General" : p.originalPost?.topic ?? "General"} ·{" "}
+                      {new Date(p.date ?? "").toLocaleDateString("es-ES", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </div>
+
+                  <p className="mt-2 text-gray-700">{p.type === 'original' ? p.text : p.originalPost?.text}</p>
+                  {(p.type === 'original' ? p.image : p.originalPost?.image) && (
+                    <img
+                      src={p.type === 'original' ? p.image : p.originalPost?.image || ''}
+                      alt={p.topic ?? "Post"}
+                      className="mt-3 rounded-xl w-full h-56 object-cover"
+                    />
+                  )}
                 </article>
               ))}
               <p className="text-center text-gray-400 text-sm mt-4">
