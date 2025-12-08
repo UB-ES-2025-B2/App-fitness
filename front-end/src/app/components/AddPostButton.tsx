@@ -6,6 +6,7 @@ import { useTopic, Topic } from "./TopicContext";
 import Cropper from "react-easy-crop";
 import { getCroppedImage } from "../components/GetCroppedImage";
 import { Area } from "react-easy-crop";
+import { usePathname } from "next/navigation";
 import { authFetch, getTokens } from "../lib/api";
 
 type NewPostPayload = {
@@ -20,11 +21,36 @@ type NewPostPayload = {
 
 export default function AddPostButton() {
   const [open, setOpen] = useState(false);
+  const [isLogged, setIsLogged] = useState(false);
   const { topic } = useTopic();
+  const pathname = usePathname();
+
+  // 🔥 Actualiza automáticamente cuando cambia el login
+  useEffect(() => {
+    const updateLoginState = () => {
+      const tokens = getTokens();
+      setIsLogged(!!tokens?.access_token);
+    };
+
+    updateLoginState();
+    window.addEventListener("user-updated", updateLoginState);
+
+    return () => window.removeEventListener("user-updated", updateLoginState);
+  }, []);
+
+  // ❌ Rutas donde NO debe mostrarse
+  const hiddenOn = [
+    "/login",
+    "/registration",
+    "/verify-email",
+    "/verify-email-start",
+  ];
+
+  if (!isLogged || hiddenOn.includes(pathname)) return null;
 
   return (
     <>
-      {/* Botó flotant */}
+      {/* Botón flotante */}
       <button
         aria-label="Afegir publicació"
         onClick={() => setOpen(true)}

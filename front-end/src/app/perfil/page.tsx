@@ -495,10 +495,26 @@ export default function ProfilePage() {
             <ProfileAvatar
               value={profile.avatarUrl}
               onChange={async (url) => {
+                // 1. Actualizamos estado visual inmediato en la página de perfil
                 setProfile((p) => ({ ...p, avatarUrl: url }));
+
                 try {
+                  // 2. Enviamos al Backend para guardar en BD
                   await updateMe({ avatar_url: url || null });
+
+                  // 3. ¡IMPORTANTE! Actualizamos localStorage para el Header
+                  const storedUser = localStorage.getItem("ubfitness_user");
+                  if (storedUser) {
+                    const userObj = JSON.parse(storedUser);
+                    userObj.avatar_url = url; // Actualizamos la URL en el objeto guardado
+                    localStorage.setItem("ubfitness_user", JSON.stringify(userObj));
+
+                    // 4. Disparamos evento para forzar al Header a recargar la info
+                    window.dispatchEvent(new Event("user-updated")); // Evento personalizado
+                  }
+
                 } catch (e) {
+                  // Si falla, revertimos el cambio visual
                   setProfile((p) => ({ ...p, avatarUrl: undefined }));
                   alert((e as Error).message);
                 }

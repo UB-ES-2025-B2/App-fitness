@@ -258,7 +258,6 @@ def resend_verification():
     _send_verification_email(user.email, verify_url)
 
     return jsonify({"message": "Correo de verificación reenviado."}), 200
-
 @bp.route('/login', methods=['POST'])
 def login():
     data = request.get_json()
@@ -300,7 +299,9 @@ def login():
         "user": {
             "id": user.id,
             "name": user.name,
-            "email": user.email
+            "email": user.email,
+            "username": user.username,    # <--- NUEVO: Añadido username
+            "avatar_url": user.avatar_url # <--- NUEVO: Añadido avatar_url
         }
     }), 200
 
