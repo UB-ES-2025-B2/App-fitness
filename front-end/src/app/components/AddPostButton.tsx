@@ -54,7 +54,14 @@ export default function AddPostButton() {
       <button
         aria-label="Afegir publicació"
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 rounded-full shadow-lg bg-transparent dark:bg-slate-800 p-0 focus:outline-none focus:ring-2 focus:ring-blue-400 hover:scale-105 transition-transform"
+        className="fixed bottom-6 right-6 rounded-full shadow-lg 
+           bg-white dark:bg-slate-700/60 
+           border border-gray-300 dark:border-slate-600 
+           p-0 
+           focus:outline-none focus:ring-2 focus:ring-blue-400 
+           hover:bg-blue-50 dark:hover:bg-slate-600 
+           hover:scale-105 active:scale-95 
+           transition-all z-[55]"
       >
         <Image
           src="/images/AddContent.png"
