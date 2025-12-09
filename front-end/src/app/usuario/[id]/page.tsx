@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import UserListModal from "../../components/UserListModal";
+import Link from "next/link";
+import ReportForm from "../../components/ReportForm";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
 
@@ -33,7 +35,107 @@ type Post = {
   date: string;
 };
 
-// Componente auxiliar para manejar errores de imagen
+type PostBase = {
+  id: number;
+  topic: string;
+  text: string;
+  image?: string;
+  likeCount?: number;
+  likedByMe?: boolean;
+  date?: string;
+  repostCount?: number;
+};
+
+type OriginalContent = PostBase & {
+  user: string;
+  userId?: number;
+};
+
+type Item = OriginalContent & {
+  type: 'original' | 'repost';
+  repostedBy?: string;
+  repostedById?: number;
+  repostComment?: string;
+  originalPost?: OriginalContent; 
+};
+
+type BackendPost = {
+  id: number;
+  text: string;
+  topic?: string | null;
+  image?: string | null;
+  date?: string | null;
+  created_at?: string | null;
+  timestamp?: string | null;
+  user?: { id: number; username: string; name?: string | null } | null;
+  likes?: number;
+  liked?: boolean;
+  likedByMe?: boolean;
+  reposts?: number;
+
+  type?: 'original' | 'repost'; 
+  comment_text?: string | null;
+  reposted_by?: { id: number; username: string; name?: string | null } | null;
+  original_content?: BackendPost;
+};
+
+function normalizePost(p: BackendPost): Item {
+  const isRepost = p.type === 'repost';
+  let sourcePost = p;
+  
+  if (isRepost && p.original_content) {
+    sourcePost = p.original_content;
+  }
+
+  const userName =
+    typeof sourcePost.user === "string"
+      ? sourcePost.user
+      : sourcePost.user?.name || sourcePost.user?.username || "Usuari";
+
+  const userId =
+    typeof sourcePost.user === "object" && sourcePost.user?.id
+      ? sourcePost.user.id
+      : undefined;
+
+  const bestDate =
+    sourcePost.date ||
+    sourcePost.created_at ||
+    sourcePost.timestamp ||
+    new Date().toISOString(); 
+    
+  const originalData: OriginalContent = {
+    id: sourcePost.id,
+    text: sourcePost.text,
+    topic: sourcePost.topic ?? "General",
+    image: sourcePost.image ?? undefined,
+    user: userName,
+    userId,
+    likeCount: sourcePost.likes ?? 0,
+    likedByMe: sourcePost.likedByMe ?? sourcePost.liked ?? false,
+    date: bestDate,
+    repostCount: sourcePost.reposts ?? 0,
+  };
+  
+  if (isRepost) {
+      const reposterName = p.reposted_by?.name || p.reposted_by?.username || "Usuari Desconegut";
+      const reposterId = p.reposted_by?.id;
+      const repostComment = p.comment_text ?? undefined;
+      
+      return {
+          ...originalData,
+          type: 'repost',
+          repostedBy: reposterName,
+          repostedById: reposterId,
+          repostComment: repostComment,
+          originalPost: originalData,
+          date: p.created_at || p.date || bestDate,
+      } as Item;
+  }
+
+  return { ...originalData, type: 'original' } as Item;
+}
+
+
 const SafeImage = ({ 
   src, 
   alt, 
@@ -69,13 +171,84 @@ const SafeImage = ({
   );
 };
 
+function PostContent({
+    post,
+    handleRepost
+}: {
+    post: Item;
+    handleRepost: (id: number) => void;
+}) {
+    return (
+        <div className={post.type === 'repost' ? "border border-gray-200 dark:border-slate-700 p-4 rounded-xl" : ""}>
+            <div className="flex items-center justify-between mb-2">
+                {post.userId ? (
+                    <Link
+                        href={`/usuario/${post.userId}`}
+                        className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                    >
+                        {post.user}
+                    </Link>
+                ) : (
+                    <h2 className="font-semibold text-blue-600 dark:text-blue-400">{post.user}</h2>
+                )}
+                <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    {post.topic}
+                </span>
+            </div>
+
+            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{post.text}</p>
+
+            {post.image && (
+                <div className="mt-3 overflow-hidden rounded-xl">
+                    <SafeImage
+                        src={post.image}
+                        alt={post.topic}
+                        width={600}
+                        height={400}
+                        className="w-full h-64 object-cover transform hover:scale-[1.02] transition-transform duration-500"
+                    />
+                </div>
+            )}
+
+            <div className="mt-3 flex items-center gap-3">
+                <span className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
+                    <span>{post.likedByMe ? "💖" : "🤍"}</span>
+                    <span>{post.likeCount ?? 0} Me gusta</span>
+                </span>
+                
+                <button
+                    onClick={() => handleRepost(post.id)}
+                    className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        className="w-4 h-4"
+                    >
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm3.5 12.5a.5.5 0 0 1-.5.5H12a.5.5 0 0 1-.5-.5v-4h-2a.5.5 0 0 1-.5-.5V9a.5.5 0 0 1 .5-.5h2V4.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v4h2a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-2v4a.5.5 0 0 1-.5.5z"/>
+                        <path fill="none" d="M0 0h24v24H0z"/>
+                    </svg>
+                    <span>Repost</span>
+                </button>
+                
+                {post.repostCount !== undefined && post.repostCount >= 0 && (
+                    <span className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300">
+                        🔁 {post.repostCount} Reposts
+                    </span>
+                )}
+            </div>
+        </div>
+    );
+}
+
 export default function UserProfilePage() {
   const params = useParams();
   const router = useRouter();
   const userId = params?.id as string;
 
   const [user, setUser] = useState<UserProfile | null>(null);
-  const [posts, setPosts] = useState<Post[]>([]);
+  const [posts, setPosts] = useState<Item[]>([]);
   const [selectedTopic, setSelectedTopic] = useState<string>("Todos");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -89,6 +262,16 @@ export default function UserProfilePage() {
   const [followingList, setFollowingList] = useState<UserSummary[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState<"followers" | "following">("followers");
+  const [reportPostId, setReportPostId] = useState<number | null>(null);
+  const isReportModalOpen = reportPostId !== null;
+
+  const handleOpenReport = (postId: number) => {
+    setReportPostId(postId);
+  };
+
+  const handleClosePostReport = () => {
+    setReportPostId(null);
+  };
 
   useEffect(() => {
     const tokens = localStorage.getItem("ubfitness_tokens");
@@ -127,8 +310,8 @@ export default function UserProfilePage() {
 
         const postsRes = await fetch(`${API_BASE}/api/users/${userId}/posts`);
         if (!postsRes.ok) throw new Error("Error al cargar publicaciones");
-        const postsData = await postsRes.json();
-        setPosts(postsData);
+        const postsData: BackendPost[] = await postsRes.json();
+        setPosts(postsData.map(normalizePost));
 
         const followersRes = await fetch(`${API_BASE}/api/users/${userId}/followers`);
         const followersData = await followersRes.json();
@@ -184,6 +367,50 @@ export default function UserProfilePage() {
     }
   };
 
+  const handleRepost = async (postId: number) => {
+    const raw = localStorage.getItem("ubfitness_tokens");
+    let accessToken: string | null = null;
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        accessToken = parsed.access_token;
+      } catch (e) {
+        console.error("Invalid ubfitness_tokens in localStorage", e);
+      }
+    }
+
+    if (!accessToken) {
+      alert("Has d'iniciar sessió per repostejar.");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/posts/${postId}/repost`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (res.status === 201) {
+        alert("Repost creat amb èxit!");
+        window.location.reload(); 
+      } else if (res.status === 200) {
+        alert("Ja has reposteat aquest post.");
+      }
+      else {
+        const errorData = await res.json();
+        alert(`Error al fer Repost: ${errorData.error || 'Petició fallida'}`);
+        console.error("Error al fer Repost:", res.status, errorData);
+      }
+    } catch (err) {
+      console.error("Error durant la petició de Repost:", err);
+      alert("Error de xarxa en fer Repost.");
+    }
+  };
+
   if (loading) {
     return (
       <main className="min-h-screen bg-gradient-to-b from-gray-50 to-white p-4 md:p-8">
@@ -210,7 +437,6 @@ export default function UserProfilePage() {
     );
   }
 
-  // Obtener temas únicos (excluyendo vacíos y duplicados)
   const uniqueTopics = Array.from(
     new Set(posts.map((p) => p.topic).filter((t) => t && t.trim() !== ""))
   );
@@ -351,15 +577,45 @@ export default function UserProfilePage() {
           ) : (
             filteredPosts.map((post) => (
               <div
-                key={post.id}
+                key={post.id + post.type + (post.repostedById || 0)}
                 className="bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow"
               >
+                {post.type === 'repost' && (
+                    <div className="flex items-center gap-3 p-4 border-b">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="currentColor"
+                            className="w-4 h-4 text-green-500"
+                        >
+                            <path fillRule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.355 4.5 4.5 0 0 0 4.5 0 7.5 7.5 0 0 1-12.548 3.355Z" clipRule="evenodd" />
+                            <path d="M18.75 12a.75.75 0 0 0 0 1.5h.008a.75.75 0 0 0 0-1.5H18.75Z" />
+                            <path fillRule="evenodd" d="M4.5 12.75a7.5 7.5 0 0 1 12.548-3.355 4.5 4.5 0 0 0 4.5 0 7.5 7.5 0 0 1-12.548 3.355ZM18.75 15a.75.75 0 0 0 0 1.5h.008a.75.75 0 0 0 0-1.5H18.75Z" clipRule="evenodd" />
+                        </svg>
+                        
+                        <p className="text-sm text-gray-600">
+                            Recompartido por{' '}
+                            <span className="font-semibold text-gray-800">
+                                {post.repostedBy}
+                            </span>
+                        </p>
+                    </div>
+                )}
+                
+                {post.type === 'repost' && post.repostComment && (
+                    <div className="p-4 border-b">
+                        <p className="italic text-gray-600 border-l-4 border-blue-500 pl-3">
+                            `{post.repostComment}`
+                        </p>
+                    </div>
+                )}
+
                 <div className="flex items-center gap-3 p-4 border-b">
                   <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200">
-                    {user.avatarUrl ? (
+                    {(post.type === 'original' ? user.avatarUrl : post.originalPost?.image) ? (
                       <SafeImage
-                        src={user.avatarUrl}
-                        alt={user.name}
+                        src={(post.type === 'original' ? user.avatarUrl : post.originalPost?.image) || ''}
+                        alt={(post.type === 'original' ? user.name : post.originalPost?.user) || 'Avatar'}
                         width={40}
                         height={40}
                         className="object-cover w-full h-full"
@@ -367,15 +623,17 @@ export default function UserProfilePage() {
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 to-purple-500">
                         <span className="text-sm text-white font-bold">
-                          {user.name.charAt(0).toUpperCase()}
+                          {(post.type === 'original' ? user.name : post.originalPost?.user)?.charAt(0).toUpperCase()}
                         </span>
                       </div>
                     )}
                   </div>
                   <div>
-                    <p className="font-semibold text-gray-800">{user.name}</p>
+                    <p className="font-semibold text-gray-800">
+                        {post.type === 'original' ? user.name : post.originalPost?.user}
+                    </p>
                     <p className="text-xs text-gray-500">
-                      {new Date(post.date).toLocaleDateString("es-ES", {
+                      {new Date((post.type === 'original' ? post.date : post.originalPost?.date || post.date) ?? "").toLocaleDateString("es-ES", {
                         day: "numeric",
                         month: "short",
                         year: "numeric",
@@ -385,12 +643,12 @@ export default function UserProfilePage() {
                 </div>
 
                 <div className="p-4">
-                  <p className="text-gray-800 mb-3">{post.text}</p>
+                  <p className="text-gray-800 mb-3">{post.type === 'original' ? post.text : post.originalPost?.text}</p>
 
-                  {post.image && (
+                  {(post.type === 'original' ? post.image : post.originalPost?.image) && (
                     <div className="relative w-full h-96 rounded-xl overflow-hidden">
                       <SafeImage
-                        src={post.image}
+                        src={(post.type === 'original' ? post.image : post.originalPost?.image) || ''}
                         alt="Post"
                         fill
                         className="object-cover"
@@ -399,10 +657,36 @@ export default function UserProfilePage() {
                   )}
                 </div>
 
-                <div className="px-4 pb-4">
+                <div className="px-4 pb-4 flex justify-between items-center">
                   <span className="inline-block px-3 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
-                    {post.topic}
+                    {post.type === 'original' ? post.topic : post.originalPost?.topic}
                   </span>
+                  
+                  <button
+                    onClick={() => handleRepost(post.type === 'original' ? post.id : post.originalPost?.id || post.id)}
+                    className="flex items-center gap-1 text-sm text-gray-600 hover:text-green-600 transition-colors"
+                  >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        className="w-4 h-4"
+                    >
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm3.5 12.5a.5.5 0 0 1-.5.5H12a.5.5 0 0 1-.5-.5v-4h-2a.5.5 0 0 1-.5-.5V9a.5.5 0 0 1 .5-.5h2V4.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5v4h2a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-2v4a.5.5 0 0 1-.5.5z"/>
+                        <path fill="none" d="M0 0h24v24H0z"/>
+                    </svg>
+                    <span>Repost ({post.repostCount ?? 0})</span>
+                  </button>
+                  <button
+                onClick={() => handleOpenReport(post.id)}
+                className="flex items-center gap-1 text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 ml-auto"
+              ><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                    <line x1="12" y1="9" x2="12" y2="13" />
+                    <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                Denunciar
+                </button>
                 </div>
               </div>
             ))
@@ -416,6 +700,14 @@ export default function UserProfilePage() {
         title={modalType === "followers" ? "Seguidores" : "Siguiendo"}
         users={modalType === "followers" ? followersList : followingList}
       />
+      {isReportModalOpen && reportPostId !== null && (
+          <ReportForm
+              targetId={reportPostId} 
+              targetType="post" 
+              isOpen={isReportModalOpen}
+              onClose={handleClosePostReport}
+          />
+      )}
     </main>
   );
 }

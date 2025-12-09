@@ -41,6 +41,19 @@ class User(db.Model):
         lazy="dynamic",
     )
 
+    user_activities = db.relationship(
+        "UserActivity",
+        back_populates="user",
+        cascade="all, delete-orphan",
+        lazy="dynamic",
+    )
+    bookmarked_posts = db.relationship(
+        "Post",
+        secondary="bookmark",
+        back_populates="bookmarked_by",
+        lazy="dynamic",
+    )
+
     def set_password(self, password):
         self.password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
@@ -61,6 +74,7 @@ class User(db.Model):
             "id": self.id,
             "username": self.username,
             "name": self.name or "",
+            "avatar_url": self.avatar_url,
             "avatarUrl": self.avatar_url,
             "bio": self.bio or "",
             "ocultarInfo": bool(self.ocultar_info),

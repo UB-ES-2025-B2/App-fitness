@@ -1,10 +1,7 @@
-// src/app/perfil/page.tsx
 "use client";
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
-
 import ProfileAvatar from "../components/ProfileAvatar";
 import UserListModal from "../components/UserListModal";
 
@@ -12,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { authFetch, getTokens, clearTokens } from "../lib/api";
 
 import LogoutButton from "../components/LogOutButton";
+import CityProgressPanel from "../components/CityProgressPanel";
 
 type ApiUser = {
   id: number;
@@ -21,7 +19,7 @@ type ApiUser = {
   avatar_url?: string;
   bio?: string;
   ocultar_info?: boolean;
-  preferences?: Array<"Fútbol" | "Básquet" | "Montaña"> | string[]; // por si back devuelve otros ids
+  preferences?: Array<"Fútbol" | "Básquet" | "Montaña"> | string[];
 };
 
 type UserSummary = {
@@ -53,7 +51,7 @@ async function updateMe(patch: Partial<{
     const text = await res.text();
     throw new Error(text || "No se pudo guardar el perfil");
   }
-  return res.json(); // { message, user: {...} }
+  return res.json();
 }
 
 type BackendPost = {
@@ -69,30 +67,110 @@ type BackendPost = {
     username: string;
     name?: string | null;
   } | null;
+
+  timestamp?: string | null;
+
+  type?: 'original' | 'repost';
+  likes?: number;
+  liked?: boolean;
+  likedByMe?: boolean;
+  reposts?: number;
+  comment_text?: string | null;
+  reposted_by?: { id: number; username: string; name?: string | null } | null;
+  original_content?: BackendPost;
 };
 
-type ApiPost = {
+type PostBase = {
   id: number;
+  topic: string;
   text: string;
-  image?: string | null;
-  topic?: string;
-  date: string;
+  image?: string;
+  likeCount?: number;
+  likedByMe?: boolean;
+  date?: string;
+  repostCount?: number;
+};
+
+type OriginalContent = PostBase & {
+  user: string;
+  userId?: number;
+};
+
+type ApiPost = OriginalContent & {
+  type: 'original' | 'repost';
+  repostedBy?: string;
+  repostedById?: number;
+  repostComment?: string;
+  originalPost?: OriginalContent;
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
 
 function normalizeUserPost(p: BackendPost): ApiPost {
-  return {
-    id: p.id,
-    text: p.text,
-    topic: p.topic ?? "General",
-    image: p.image ?? p.image_url ?? undefined,
-    date: p.date ?? p.created_at ?? new Date().toISOString(),
+  const isRepost = p.type === 'repost';
+  let sourcePost = p;
+
+  if (isRepost && p.original_content) {
+    sourcePost = p.original_content;
+  }
+
+  const userName =
+    typeof sourcePost.user === "string"
+      ? sourcePost.user
+      : sourcePost.user?.name || sourcePost.user?.username || "Usuari";
+
+  const userId =
+    typeof sourcePost.user === "object" && sourcePost.user?.id
+      ? sourcePost.user.id
+      : undefined;
+
+  const bestDate =
+    sourcePost.date ||
+    sourcePost.created_at ||
+    sourcePost.timestamp ||
+    new Date().toISOString();
+
+  const originalData: OriginalContent = {
+    id: sourcePost.id,
+    text: sourcePost.text,
+    topic: sourcePost.topic ?? "General",
+    image: sourcePost.image ?? sourcePost.image_url ?? undefined,
+    user: userName,
+    userId,
+    likeCount: sourcePost.likes ?? 0,
+    likedByMe: sourcePost.likedByMe ?? sourcePost.liked ?? false,
+    date: bestDate,
+    repostCount: (sourcePost.reposts as number | undefined) ?? 0,
   };
+
+  if (isRepost) {
+    const reposterName = p.reposted_by?.name || p.reposted_by?.username || "Tú";
+    const reposterId = p.reposted_by?.id;
+    const repostComment = p.comment_text ?? undefined;
+
+    return {
+      ...originalData,
+      type: 'repost',
+      repostedBy: reposterName,
+      repostedById: reposterId,
+      repostComment: repostComment,
+      originalPost: originalData,
+      date: p.created_at || p.date || originalData.date,
+    } as ApiPost;
+  }
+
+  return { ...originalData, type: 'original' } as ApiPost;
 }
 
 async function fetchUserPosts(userId: number): Promise<ApiPost[]> {
   const res = await authFetch(`${API_BASE}/api/users/${userId}/posts`);
+  if (!res.ok) return [];
+  const data: BackendPost[] = await res.json();
+  return data.map(normalizeUserPost);
+}
+
+async function fetchUserBookmarks(userId: number): Promise<ApiPost[]> {
+  const res = await authFetch(`${API_BASE}/api/users/${userId}/bookmarks`);
   if (!res.ok) return [];
   const data: BackendPost[] = await res.json();
   return data.map(normalizeUserPost);
@@ -104,11 +182,11 @@ type Profile = {
   apellido1: string;
   apellido2: string;
   username: string;
-  fechaNacimiento: string; // ISO yyyy-mm-dd
+  fechaNacimiento: string;
   lugarNacimiento: string;
   direccion: string;
   temas: Array<"Fútbol" | "Básquet" | "Montaña">;
-  ocultarInfo: boolean; // true = ocultar (activada por defecto)
+  ocultarInfo: boolean;
   avatarUrl?: string;
 };
 
@@ -128,6 +206,7 @@ const INITIAL_PROFILE: Profile = {
 type TopicFilter = "ALL" | "Fútbol" | "Básquet" | "Montaña";
 type DateFilter = "ALL" | "DAY" | "MONTH" | "YEAR";
 type SortOrder = "DESC" | "ASC";
+type Tab = "POSTS" | "BOOKMARKS";
 
 
 export default function ProfilePage() {
@@ -135,70 +214,170 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile>(INITIAL_PROFILE);
   const [loading, setLoading] = useState(true);
 
-  // Listas de seguidores/seguidos
   const [followersList, setFollowersList] = useState<UserSummary[]>([]);
   const [followingList, setFollowingList] = useState<UserSummary[]>([]);
-  
-  // Modal
+
   const [modalOpen, setModalOpen] = useState(false);
   const [modalType, setModalType] = useState<"followers" | "following">("followers");
 
   const [posts, setPosts] = useState<ApiPost[]>([]);
   const [postsLoading, setPostsLoading] = useState(true);
 
+  const [bookmarkedPosts, setBookmarkedPosts] = useState<ApiPost[]>([]);
+  const [bookmarksLoading, setBookmarksLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState<Tab>("POSTS");
+
   const [topicFilter, setTopicFilter] = useState<TopicFilter>("ALL");
   const [dateFilter, setDateFilter] = useState<DateFilter>("ALL");
   const [sortOrder, setSortOrder] = useState<SortOrder>("DESC");
 
-  // Posts filtrados + ordenados
-  const visiblePosts = (() => {
-  if (!posts || posts.length === 0) return [];
+  const [postToDelete, setPostToDelete] = useState<{ id: number; type: 'original' | 'repost'; originalId?: number } | null>(null);
 
-  const now = new Date();
-
-  const passesDateFilter = (dateStr: string) => {
-    if (dateFilter === "ALL") return true;
-
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return true;
-
-    if (dateFilter === "DAY") {
-      const oneDayMs = 24 * 60 * 60 * 1000;
-      return now.getTime() - d.getTime() <= oneDayMs;
-    }
-
-    if (dateFilter === "MONTH") {
-      const monthAgo = new Date();
-      monthAgo.setMonth(monthAgo.getMonth() - 1);
-      return d >= monthAgo;
-    }
-
-    if (dateFilter === "YEAR") {
-      const yearAgo = new Date();
-      yearAgo.setFullYear(yearAgo.getFullYear() - 1);
-      return d >= yearAgo;
-    }
-
-    return true;
+  const askDeletePost = (id: number, type: 'original' | 'repost', originalId?: number) => {
+    setPostToDelete({ id, type, originalId });
   };
 
-  return [...posts]
-    .filter((p) => {
-      const topic = p.topic || "";
-      if (topicFilter !== "ALL" && topic !== topicFilter) return false;
-      return passesDateFilter(p.date);
-    })
-    .sort((a, b) => {
-      const da = new Date(a.date).getTime();
-      const db = new Date(b.date).getTime();
-      if (isNaN(da) || isNaN(db)) return 0;
-      return sortOrder === "DESC" ? db - da : da - db;
-    });
-})();
+  const cancelDeletePost = () => {
+    setPostToDelete(null);
+  };
+  const handleUnbookmark = async (post: ApiPost) => {
+    const postId = post.type === "repost" && post.originalPost
+      ? post.originalPost.id
+      : post.id;
+
+    try {
+      const res = await authFetch(`${API_BASE}/api/posts/${postId}/bookmark`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("Error al quitar de guardados:", text);
+        alert("No se pudo quitar de guardados");
+        return;
+      }
+
+      setBookmarkedPosts((prev) =>
+        prev.filter((p) => {
+          const id = p.type === "repost" && p.originalPost ? p.originalPost.id : p.id;
+          return id !== postId;
+        })
+      );
+
+      setPosts((prev) =>
+        prev.map((p) => {
+          const isOriginal = p.id === postId && p.type === "original";
+          const isRepost = p.type === "repost" && p.originalPost?.id === postId;
+
+          if (isOriginal) {
+            return { ...p, bookmarkedByMe: false };
+          }
+          if (isRepost && p.originalPost) {
+            return {
+              ...p,
+              originalPost: {
+                ...p.originalPost,
+                bookmarkedByMe: false,
+              },
+            };
+          }
+          return p;
+        })
+      );
+    } catch (err) {
+      console.error("Error de red al quitar de guardados:", err);
+      alert("Error de red al quitar de guardados");
+    }
+  };
+
+  const confirmDeletePost = async () => {
+    if (postToDelete === null) return;
+
+    try {
+      let endpoint = '';
+      let idToDelete = postToDelete.id;
+
+      if (postToDelete.type === 'repost' && postToDelete.originalId) {
+        endpoint = `${API_BASE}/api/posts/${postToDelete.originalId}/repost`;
+        idToDelete = postToDelete.originalId;
+      } else {
+        endpoint = `${API_BASE}/api/posts/${postToDelete.id}`;
+      }
+
+      const res = await authFetch(endpoint, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const text = await res.text();
+        console.error("Error al borrar post:", text);
+        alert("No se pudo eliminar la publicación");
+        return;
+      }
+
+      setPosts((prev) => prev.filter((p) => {
+        if (p.type === 'original' && p.id === idToDelete) return false;
+        if (p.type === 'repost' && p.originalPost?.id === idToDelete) return false;
+
+        return true;
+      }));
+      setPostToDelete(null);
+    } catch (err) {
+      console.error("Error de red al eliminar el post:", err);
+      alert("Error de red al eliminar la publicación");
+    }
+  };
+
+
+  const visiblePosts = (() => {
+    const source = activeTab === "POSTS" ? posts : bookmarkedPosts;
+
+    if (!source || source.length === 0) return [];
+
+    const now = new Date();
+
+    const passesDateFilter = (dateStr: string) => {
+      if (dateFilter === "ALL") return true;
+
+      const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return true;
+
+      if (dateFilter === "DAY") {
+        const oneDayMs = 24 * 60 * 60 * 1000;
+        return now.getTime() - d.getTime() <= oneDayMs;
+      }
+
+      if (dateFilter === "MONTH") {
+        const monthAgo = new Date();
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        return d >= monthAgo;
+      }
+
+      if (dateFilter === "YEAR") {
+        const yearAgo = new Date();
+        yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+        return d >= yearAgo;
+      }
+
+      return true;
+    };
+
+    return [...source]
+      .filter((p) => {
+        const topic = p.topic || "";
+        if (topicFilter !== "ALL" && topic !== topicFilter) return false;
+        return passesDateFilter(p.date ?? "");
+      })
+      .sort((a, b) => {
+        const da = new Date(a.date ?? "").getTime();
+        const db = new Date(b.date ?? "").getTime();
+        if (isNaN(da) || isNaN(db)) return 0;
+        return sortOrder === "DESC" ? db - da : da - db;
+      });
+  })();
 
 
   useEffect(() => {
-    // Escuchar nuevos posts creados en cualquier parte (composer)
     const onNewPost = (e: Event) => {
       const detail = (e as CustomEvent<{
         id: number;
@@ -207,15 +386,14 @@ export default function ProfilePage() {
         image?: string;
       }>).detail;
 
-      // Lo adaptamos a tu ApiPost
       const apiPost: ApiPost = {
         id: detail.id,
         text: detail.text,
         topic: detail.topic,
         image: detail.image,
-        // No nos llega la fecha del evento normalizado, usamos "ahora"
         date: new Date().toISOString(),
-      };
+        type: 'original',
+      } as ApiPost;
 
       setPosts((prev) => [apiPost, ...prev]);
     };
@@ -225,10 +403,7 @@ export default function ProfilePage() {
   }, []);
 
 
-
-
   useEffect(() => {
-    // si no hay tokens -> a /login
     if (!getTokens()) {
       router.replace("/login");
       return;
@@ -241,10 +416,9 @@ export default function ProfilePage() {
         return;
       }
 
-      // Mapea lo que venga del back a tu shape local
       setProfile({
         nombre: me.name ?? "",
-        apellido1: "",           // aún no viene del back
+        apellido1: "",
         apellido2: "",
         username: me.username ?? "",
         fechaNacimiento: "",
@@ -253,13 +427,12 @@ export default function ProfilePage() {
         avatarUrl: me.avatar_url ?? undefined,
         temas: Array.isArray(me.preferences)
           ? (me.preferences as string[]).filter((t) =>
-              ["Fútbol", "Básquet", "Montaña"].includes(t)
-            ) as Array<"Fútbol" | "Básquet" | "Montaña">
+            ["Fútbol", "Básquet", "Montaña"].includes(t)
+          ) as Array<"Fútbol" | "Básquet" | "Montaña">
           : [],
         ocultarInfo: typeof me.ocultar_info === "boolean" ? me.ocultar_info : true,
       });
 
-      // Cargar seguidores, seguidos y posts
       try {
         const [followersRes, followingRes] = await Promise.all([
           authFetch(`/api/users/${me.id}/followers`),
@@ -270,22 +443,28 @@ export default function ProfilePage() {
           const followersData = await followersRes.json();
           setFollowersList(followersData);
         }
-        
+
         if (followingRes.ok) {
           const followingData = await followingRes.json();
           setFollowingList(followingData);
         }
 
-        // Cargar posts usando la función normalizada
         setPostsLoading(true);
+        setBookmarksLoading(true);
         try {
-          const userPosts = await fetchUserPosts(me.id);
+          const [userPosts, userBookmarks] = await Promise.all([
+            fetchUserPosts(me.id),
+            fetchUserBookmarks(me.id),
+          ]);
           setPosts(userPosts);
+          setBookmarkedPosts(userBookmarks);
         } catch (e) {
           console.error(e);
           setPosts([]);
+          setBookmarkedPosts([]);
         } finally {
           setPostsLoading(false);
+          setBookmarksLoading(false);
         }
 
       } catch (error) {
@@ -298,32 +477,47 @@ export default function ProfilePage() {
 
 
   if (loading) return <p className="p-6">Cargando perfil…</p>;
-  
+
   const PH = "Aún no almacenado";
   const show = (v?: string) => (v && v.trim() ? v : PH);
   const fullName =
-  [profile.nombre, profile.apellido1, profile.apellido2]
-    .filter(Boolean)
-    .join(" ")
-    .trim() || PH;
+    [profile.nombre, profile.apellido1, profile.apellido2]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || PH;
 
   return (
     <div className="max-w-3xl mx-auto px-4 lg:px-0 py-6">
-      {/* Header perfil */}
-      <section className="bg-white rounded-2xl shadow-md p-5 mb-6 relative">
-        
+      <section className="bg-white/90 backdrop-blur-xl border border-gray-200/40 
+        rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] p-6 mb-6 relative 
+        transition-all duration-300">
+
+
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            {/* AVATAR CLICABLE */}
             <ProfileAvatar
               value={profile.avatarUrl}
               onChange={async (url) => {
-                // Optimista en UI
+                // 1. Actualizamos estado visual inmediato en la página de perfil
                 setProfile((p) => ({ ...p, avatarUrl: url }));
+
                 try {
+                  // 2. Enviamos al Backend para guardar en BD
                   await updateMe({ avatar_url: url || null });
+
+                  // 3. ¡IMPORTANTE! Actualizamos localStorage para el Header
+                  const storedUser = localStorage.getItem("ubfitness_user");
+                  if (storedUser) {
+                    const userObj = JSON.parse(storedUser);
+                    userObj.avatar_url = url; // Actualizamos la URL en el objeto guardado
+                    localStorage.setItem("ubfitness_user", JSON.stringify(userObj));
+
+                    // 4. Disparamos evento para forzar al Header a recargar la info
+                    window.dispatchEvent(new Event("user-updated")); // Evento personalizado
+                  }
+
                 } catch (e) {
-                  // Revertir si falla
+                  // Si falla, revertimos el cambio visual
                   setProfile((p) => ({ ...p, avatarUrl: undefined }));
                   alert((e as Error).message);
                 }
@@ -331,7 +525,7 @@ export default function ProfilePage() {
             />
 
             <div className="flex items-center gap-2">
-              <LogoutButton /> {/* Botón de cerrar sesión */}
+              <LogoutButton />
             </div>
 
             <div>
@@ -342,14 +536,12 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          {/* Botón de configuración */}
           <SettingsDropdown profile={profile} onSave={setProfile} />
         </div>
 
-        {/* Stats */}
         <div className="mt-4 grid grid-cols-3 divide-x rounded-lg bg-gray-50">
           <Stat label="Publicaciones" value={posts.length} />
-          <div 
+          <div
             className="cursor-pointer hover:bg-gray-100 transition-colors rounded-lg"
             onClick={() => {
               setModalType("followers");
@@ -358,7 +550,7 @@ export default function ProfilePage() {
           >
             <Stat label="Seguidores" value={followersList.length} />
           </div>
-          <div 
+          <div
             className="cursor-pointer hover:bg-gray-100 transition-colors rounded-lg"
             onClick={() => {
               setModalType("following");
@@ -370,10 +562,35 @@ export default function ProfilePage() {
         </div>
       </section>
 
-      {/* Contenido de pestañas */}
       <section>
+        <div className="mb-3 flex gap-2 border-b">
+          <button
+            type="button"
+            onClick={() => setActiveTab("POSTS")}
+            className={
+              "px-4 py-2 text-sm border-b-2 -mb-[1px] " +
+              (activeTab === "POSTS"
+                ? "border-blue-600 text-blue-600 font-semibold"
+                : "border-transparent text-gray-500 hover:text-gray-800")
+            }
+          >
+            Mis publicaciones
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab("BOOKMARKS")}
+            className={
+              "px-4 py-2 text-sm border-b-2 -mb-[1px] " +
+              (activeTab === "BOOKMARKS"
+                ? "border-blue-600 text-blue-600 font-semibold"
+                : "border-transparent text-gray-500 hover:text-gray-800")
+            }
+          >
+            Guardados
+          </button>
+        </div>
         <div className="space-y-4">
-          {!postsLoading && posts.length > 0 && (
+          {visiblePosts.length > 0 && (
             <PostFilters
               topicFilter={topicFilter}
               setTopicFilter={setTopicFilter}
@@ -383,36 +600,108 @@ export default function ProfilePage() {
               setSortOrder={setSortOrder}
             />
           )}
-          
-          {postsLoading && (
+
+          {activeTab === "POSTS" && postsLoading && (
             <p className="text-center text-gray-500">Cargando publicaciones…</p>
           )}
+          {activeTab === "BOOKMARKS" && bookmarksLoading && (
+            <p className="text-center text-gray-500">Cargando guardados…</p>
+          )}
 
-          {!postsLoading && posts.length === 0 && (
+          {activeTab === "POSTS" && !postsLoading && posts.length === 0 && (
             <p className="text-center text-gray-500">Aún no hay publicaciones.</p>
+          )}
+          {activeTab === "BOOKMARKS" && !bookmarksLoading && bookmarkedPosts.length === 0 && (
+            <p className="text-center text-gray-500">Aún no has guardado publicaciones.</p>
           )}
 
           {!postsLoading && visiblePosts.length > 0 && (
             <>
               {visiblePosts.map((p) => (
-                <article key={p.id} className="bg-white rounded-2xl shadow-md p-4">
+                <article
+                  key={p.id + p.type + (p.repostedById || 0)}
+                  className="bg-white/90 backdrop-blur-xl border border-gray-200/50 
+                  rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 p-5 relative"
+                >
+                  {activeTab === "POSTS" && (
+                    <button
+                      type="button"
+                      onClick={() => askDeletePost(p.id, p.type, p.originalPost?.id)}
+                      className="absolute -top-3 right-3 text-xs px-2 py-1 rounded-full bg-red-600 text-white hover:bg-red-700 shadow"
+                    >
+                      Eliminar
+                    </button>
+                  )}
+                  {activeTab === "BOOKMARKS" && (
+                    <button
+                      type="button"
+                      onClick={() => handleUnbookmark(p)}
+                      className="absolute -top-3 right-3 text-xs px-2 py-1 rounded-full bg-amber-500 text-white hover:bg-amber-600 shadow"
+                    >
+                      Quitar de guardados
+                    </button>
+                  )}
+
+                  {postToDelete && postToDelete.id === p.id && (
+                    <div className="mt-3 p-3 border border-red-200 bg-red-50 rounded-xl text-sm text-red-800">
+                      <p className="mb-2 font-semibold">
+                        ¿Seguro que quieres eliminar esta publicación?
+                      </p>
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={cancelDeletePost}
+                          className="px-3 py-1 rounded-lg text-xs bg-white border border-red-200 hover:bg-red-100"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={confirmDeletePost}
+                          className="px-3 py-1 rounded-lg text-xs bg-red-600 text-white hover:bg-red-700"
+                        >
+                          Confirmar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {p.type === 'repost' && (
+                    <div className="mb-2 flex items-center gap-2 text-sm text-gray-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 text-green-500"><path fillRule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.355 4.5 4.5 0 0 0 4.5 0 7.5 7.5 0 0 1-12.548 3.355Z" clipRule="evenodd" /><path d="M18.75 12a.75.75 0 0 0 0 1.5h.008a.75.75 0 0 0 0-1.5H18.75Z" /><path fillRule="evenodd" d="M4.5 12.75a7.5 7.5 0 0 1 12.548-3.355 4.5 4.5 0 0 0 4.5 0 7.5 7.5 0 0 1-12.548 3.355ZM18.75 15a.75.75 0 0 0 0 1.5h.008a.75.75 0 0 0 0-1.5H18.75Z" clipRule="evenodd" /></svg>
+                      <p>
+                        Recompartido por{' '}
+                        <span className="font-semibold text-gray-800">
+                          {p.repostedBy}
+                        </span>
+                      </p>
+                    </div>
+                  )}
+
+                  {p.type === 'repost' && p.repostComment && (
+                    <p className="mb-4 italic text-gray-600 border-l-4 border-blue-500 pl-3">
+                      `{p.repostComment}`
+                    </p>
+                  )}
+
                   <div className="flex items-center justify-between">
                     <h3 className="font-medium">
-                      {profile.nombre || profile.username || "Tú"}
+                      {p.type === 'original' ? (profile.nombre || profile.username || "Tú") : (p.originalPost?.user || 'Usuario')}
                     </h3>
                     <span className="text-xs text-gray-500">
-                      {p.topic ?? "General"} ·{" "}
-                      {new Date(p.date).toLocaleDateString("es-ES", {
+                      {p.type === 'original' ? p.topic ?? "General" : p.originalPost?.topic ?? "General"} ·{" "}
+                      {new Date(p.date ?? "").toLocaleDateString("es-ES", {
                         day: "2-digit",
                         month: "2-digit",
                         year: "numeric",
                       })}
                     </span>
                   </div>
-                  <p className="mt-2 text-gray-700">{p.text}</p>
-                  {p.image && (
+
+                  <p className="mt-2 text-gray-700">{p.type === 'original' ? p.text : p.originalPost?.text}</p>
+                  {(p.type === 'original' ? p.image : p.originalPost?.image) && (
                     <img
-                      src={p.image}
+                      src={p.type === 'original' ? p.image : p.originalPost?.image || ''}
                       alt={p.topic ?? "Post"}
                       className="mt-3 rounded-xl w-full h-56 object-cover"
                     />
@@ -450,7 +739,7 @@ function SettingsDropdown({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => setForm(profile), [profile]); // si fuera cambia desde fuera, sincroniza
+  useEffect(() => setForm(profile), [profile]);
 
   const toggleTema = (tema: "Fútbol" | "Básquet" | "Montaña") => {
     setForm((f) => {
@@ -463,16 +752,12 @@ function SettingsDropdown({
     setSaving(true);
     setError(null);
     try {
-      // Mapeo de tu UI -> API
       await updateMe({
-        name: form.nombre,                          // <-- name
-        username: form.username,                    // <-- username
-        preferences: form.temas,                    // <-- preferences (array de strings)
-        ocultar_info: form.ocultarInfo,             // <-- boolean
-        // avatar_url ya lo guardamos al vuelo arriba
-        // avatar_url: form.avatarUrl || null,
+        name: form.nombre,
+        username: form.username,
+        preferences: form.temas,
+        ocultar_info: form.ocultarInfo,
       });
-      // Refleja en UI lo guardado
       onSave(form);
       setOpen(false);
     } catch (e) {
@@ -487,7 +772,7 @@ function SettingsDropdown({
       <button
         aria-label="Abrir configuración de perfil"
         onClick={() => setOpen((v) => !v)}
-        className="rounded-full bg-white border shadow-sm p-1 hover:ring-2 hover:ring-blue-400 transition"
+        className="rounded-full bg-transparent border shadow-sm p-1 hover:ring-2 hover:ring-blue-400 transition"
       >
         <Image
           src="/images/ProfileConfig.png"
@@ -506,28 +791,24 @@ function SettingsDropdown({
         >
           <h4 className="text-sm font-semibold text-gray-700 mb-3">Configuración de perfil</h4>
 
-          {/* Orden lógico de campos */}
           <div className="grid grid-cols-1 gap-3">
-            {/* Nombre y apellidos */}
             <div className="grid grid-cols-3 gap-2">
               <Input label="Nombre" value={form.nombre} onChange={(v) => setForm({ ...form, nombre: v })} />
               <Input label="Apellido 1" value={form.apellido1} onChange={(v) => setForm({ ...form, apellido1: v })} />
               <Input label="Apellido 2" value={form.apellido2} onChange={(v) => setForm({ ...form, apellido2: v })} />
             </div>
 
-            {/* Username */}
             <Input label="Username" value={form.username} onChange={(v) => setForm({ ...form, username: v })} prefix="@" />
 
-            {/* Fecha y lugar de nacimiento */}
+
+
             <div className="grid grid-cols-2 gap-2">
               <Input type="date" label="Fecha de nacimiento" value={form.fechaNacimiento} onChange={(v) => setForm({ ...form, fechaNacimiento: v })} />
               <Input label="Lugar de nacimiento" value={form.lugarNacimiento} onChange={(v) => setForm({ ...form, lugarNacimiento: v })} />
             </div>
 
-            {/* Dirección postal */}
             <Input label="Dirección" value={form.direccion} onChange={(v) => setForm({ ...form, direccion: v })} />
 
-            {/* Temáticas (checklist) */}
             <div>
               <p className="text-xs font-medium text-gray-600 mb-1">Temáticas</p>
               <div className="flex flex-wrap gap-2">
@@ -545,7 +826,6 @@ function SettingsDropdown({
               </div>
             </div>
 
-            {/* Privacidad */}
             <label className="flex items-start gap-2 rounded-lg bg-gray-50 p-3">
               <input
                 type="checkbox"
@@ -560,7 +840,6 @@ function SettingsDropdown({
             </label>
           </div>
 
-          {/* Acciones */}
           <div className="mt-4 flex justify-end gap-2">
             <button
               onClick={() => setOpen(false)}
@@ -615,8 +894,9 @@ function Input({
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="p-3 text-center">
-      <div className="text-lg font-semibold">{value}</div>
-      <div className="text-xs text-gray-500">{label}</div>
+      <div className="text-xl font-bold text-slate-800 tracking-tight">{value}</div>
+    <div className="text-[11px] uppercase text-gray-400 tracking-wide">{label}</div>
+
     </div>
   );
 }
@@ -655,7 +935,6 @@ function PostFilters({
       <div className="flex items-center justify-between gap-2">
       </div>
 
-      {/* Temáticas */}
       <div className="flex flex-wrap gap-2">
         {topicButtons.map((btn) => {
           const active = topicFilter === btn.value;
@@ -677,7 +956,6 @@ function PostFilters({
         })}
       </div>
 
-      {/* Rango de fechas */}
       <div className="flex flex-wrap gap-2">
         {dateButtons.map((btn) => {
           const active = dateFilter === btn.value;
@@ -699,7 +977,6 @@ function PostFilters({
         })}
       </div>
 
-      {/* Orden */}
       <div className="flex items-center justify-between gap-3">
         <span className="text-xs text-gray-500">Ordenar por</span>
         <div className="inline-flex rounded-full bg-gray-100 p-1">
@@ -732,4 +1009,3 @@ function PostFilters({
     </div>
   );
 }
-

@@ -12,5 +12,7 @@ class EmailVerification(db.Model):
 
     user = db.relationship("User", backref=db.backref("email_verification", uselist=False))
 
+
     def __repr__(self):
         return f"<EmailVerification user_id={self.user_id} verified={self.verified_at is not None}>"
+    

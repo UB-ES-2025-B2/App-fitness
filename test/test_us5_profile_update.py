@@ -31,7 +31,7 @@ def test_update_profile_put(client, _db):
     assert rv.status_code == 200
     data = rv.get_json()
     assert data.get('name') == 'NewName'
-    assert data.get('avatarUrl') == 'http://x'
+    assert data.get('avatar_url') == 'http://x'
 
 
 def test_auth_me_get_and_patch(client, _db):

@@ -34,17 +34,18 @@ export default async function FollowedCommunities() {
         {/* PANEL ANIMADO */}
         <div
           className="
-            relative group
-            rounded-2xl shadow-xl
-            backdrop-blur-md bg-white/80 dark:bg-slate-800/60
-            border border-gray-200 dark:border-slate-700
-            transition-all duration-300
-            w-[260px]
-            h-[60px] hover:h-[150px]
-            overflow-hidden
-            p-4
-            
-          "
+          relative group
+          rounded-2xl shadow-xl
+          bg-blue-600
+          border border-blue-500
+          transition-all duration-300
+          w-[260px]
+          h-[60px] hover:h-[150px]
+          overflow-hidden
+          p-4
+          text-white
+        "
+
         >
           {/* TÍTULO */}
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -59,7 +60,7 @@ export default async function FollowedCommunities() {
                   <div className="min-w-0">
                     <Link
                       href={`/c/${c.id}`}
-                      className="block text-sm font-medium text-blue-600 truncate hover:underline"
+                      className="block text-sm font-medium !text-white truncate hover:underline"
                       title={c.name}
                     >
                       {c.name}
@@ -77,7 +78,7 @@ export default async function FollowedCommunities() {
           <div className="mt-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
             <Link
               href="/comunidades"
-              className="text-xs text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+              className="text-xs !text-white hover:text-blue-200"
             >
               Ver todas →
             </Link>
@@ -85,7 +86,7 @@ export default async function FollowedCommunities() {
 
           {/* ICONO CUANDO ESTÁ CERRADO (modo compacto) */}
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 group-hover:hidden">
-            <span className="text-xl">👥</span>
+            <span className="text-5xl">👥</span>
           </div>
 
         </div>

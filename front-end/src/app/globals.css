@@ -1,4 +1,23 @@
+/* 🔥 TODOS LOS @IMPORTS VAN ARRIBA */
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap");
 @import "tailwindcss";
+@import "leaflet/dist/leaflet.css";
+
+/* 🔥 Fuente global */
+:root {
+  --font-sans: "Plus Jakarta Sans", "Inter", system-ui, sans-serif;
+
+  /* Colors base UB Fitness */
+  --color-bg: #425d78;
+  --color-text: #ffffff;
+  --color-primary: #2563eb;
+  --color-secondary: #ffffff;
+  --color-accent: #60a5fa;
+
+  --font-mono: "Geist Mono", monospace;
+}
+
+
 @layer base {
   html {
     color-scheme: light dark;
@@ -16,27 +35,58 @@
   }
 }
 
+.map-marker .emoji-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.map-marker .emoji {
+  font-size: 34px;       /* ⬅️ TAMAÑO DEL EMOJI */
+  filter: drop-shadow(0 0 4px rgba(0,0,0,0.5));
+}
+
+.map-marker.completed .emoji {
+  filter: drop-shadow(0 0 6px rgba(0, 255, 100, 0.8));
+}
+
+/* Leaflet por debajo del resto de la UI */
+.leaflet-container {
+  z-index: 0 !important;
+}
+
+.leaflet-pane,
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 0 !important;
+}
+
+.map-marker .check {
+  position: absolute;
+  bottom: -6px;
+  right: -6px;
+  font-size: 20px;
+  background: white;
+  border-radius: 50%;
+  padding: 1px 3px;
+  border: 2px solid #16a34a;
+}
+
 
 /* Colors base UB Fitness */
 :root {
-  --color-bg: #f4f6f8;          /* gris molt suau per al fons */
-  --color-text: #1e293b;        /* gris-blavós (millor que el negre pur) */
+  --color-bg: #425d78;          /* gris molt suau per al fons */
+  --color-text: #000000;        /* gris-blavós (millor que el negre pur) */
   --color-primary: #2563eb;     /* blau UB principal */
-  --color-secondary: #475569;   /* gris més fosc per subtítols */
+  --color-secondary: #ffffff;   /* gris més fosc per subtítols */
   --color-accent: #60a5fa;      /* blau clar per hover / efectes */
 
   --font-sans: 'Inter', system-ui, sans-serif;
   --font-mono: 'Geist Mono', monospace;
 }
 
-/* Mode fosc (per si el vols més endavant) */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-bg: #0f172a;         /* gris-blavós fosc */
-    --color-text: #000000;       /* blanc trencat */
-    --color-primary: #3b82f6;    /* blau una mica més suau */
-  }
-}
+
 
 /* Cos general */
 body {
@@ -90,3 +140,4 @@ a:hover {
     transform: translateY(0);
   }
 }
+

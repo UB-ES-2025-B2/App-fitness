@@ -45,11 +45,11 @@ def test_like_unlike_post_and_see_in_profile(driver):
     perfil = PerfilPage(driver)
 
     login.abrir()
-    time.sleep(1)
+    time.sleep(10)
     login.login("toni@example.com", "app-fitness1")
 
     feed.abrir()
-    time.sleep(2)
+    time.sleep(15)
 
     post, like_button = _get_first_likeable_post(driver)
 

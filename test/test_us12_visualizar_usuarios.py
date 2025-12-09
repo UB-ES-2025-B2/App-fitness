@@ -48,7 +48,7 @@ def test_get_user_profile_by_id(client, _db):
     assert data['username'] == 'johndoe'
     assert data['name'] == 'John Doe'
     assert data['bio'] == 'Amante del fitness'
-    assert data['avatarUrl'] == 'https://example.com/avatar.jpg'
+    assert data['avatar_url'] == 'https://example.com/avatar.jpg'
     assert data['ocultarInfo'] == False
     assert 'createdAt' in data
 

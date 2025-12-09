@@ -2,7 +2,7 @@ from flask import Blueprint, jsonify, request, abort, current_app
 import jwt
 from app.utils.auth_utils import token_required
 
-from ..models import User, Post
+from ..models import User, Post, Repost
 from app.models import db
 
 bp = Blueprint("users", __name__, url_prefix="/api/users")
@@ -64,16 +64,47 @@ def get_profile(user_id):
 
 @bp.route("/<int:user_id>/posts")
 def get_user_posts(user_id):
-    posts = Post.query.filter_by(user_id=user_id).order_by(Post.created_at.desc()).all()
-    return jsonify([
-        {
-            "id": p.id,
-            "text": p.text,
-            "topic": p.topic,
-            "image": p.image_url,
-            "date": p.created_at.isoformat(),
-        } for p in posts
-    ])
+
+    original_posts = Post.query.filter_by(user_id=user_id).all()
+    reposts_by_user = Repost.query.filter_by(user_id=user_id).all()
+
+    all_items = []
+
+    for post in original_posts:
+        item_dict = post.to_dict()
+        item_dict['type'] = 'original'
+        item_dict['sort_date'] = post.created_at
+        all_items.append(item_dict)
+
+    for repost in reposts_by_user:
+        original_post = repost.original_post
+        
+        if original_post:
+            
+            reposting_user_data = {
+                'id': repost.user_id,
+                'username': repost.user.username,
+                'name': repost.user.name if hasattr(repost.user, 'name') else repost.user.username,
+            }
+
+            repost_dict = {
+                'id': original_post.id,
+                'type': 'repost',
+                'created_at': repost.created_at.isoformat(),
+                'sort_date': repost.created_at,
+                
+                'reposted_by': reposting_user_data,
+                'comment_text': repost.comment_text,
+                
+                'original_content': original_post.to_dict(),
+            }
+            all_items.append(repost_dict)
+
+    all_items.sort(key=lambda x: x['sort_date'], reverse=True)
+    
+    final_payload = [{k: v for k, v in item.items() if k != 'sort_date'} for item in all_items]
+    
+    return jsonify(final_payload)
 
 @bp.put("/<int:user_id>")
 def update_profile(user_id):
@@ -119,3 +150,19 @@ def unfollow_user(current_user, user_id):
         current_user.following.remove(target)
         db.session.commit()
     return jsonify({"ok": True, "is_following": False})
+
+@bp.get("/<int:user_id>/bookmarks")
+@token_required
+def get_user_bookmarks(current_user, user_id):
+    """
+    Devuelve los posts guardados por el usuario.
+    Solo permitimos que cada uno vea sus propios guardados.
+    """
+    if current_user.id != user_id:
+        return jsonify({"error": "No tienes permiso para ver estos guardados"}), 403
+
+    posts = current_user.bookmarked_posts.order_by(Post.created_at.desc()).all()
+    return jsonify([
+        p.to_dict(current_user_id=current_user.id)
+        for p in posts
+    ]), 200

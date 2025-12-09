@@ -16,25 +16,12 @@ def test_busqueda_usuario(driver):
     time.sleep(1)
 
     login.login("toni@example.com", "app-fitness1")
+    time.sleep(10)
+
+    home.buscar("Centre Excursionista Puigcastellar")
     time.sleep(5)
 
-    wait = WebDriverWait(driver, 15)
-    try:
-        card = wait.until(
-            EC.presence_of_element_located(
-                (By.XPATH, "//img[@alt='Centre Excursionista Puigcastellar']/ancestor::a[1]")
-            )
-        )
-    except Exception as e:
-        raise AssertionError(
-            "Elemento 'Centre Excursionista Puigcastellar' no apareció en la página. "
-            "Verifica que el dato exista en la base de datos del deploy o que la ruta sea correcta."
-        ) from e
-
-    # ensure visible and click
-    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", card)
-    driver.execute_script("arguments[0].click();", card)
-    time.sleep(5)
+    resultados.abrir_resultado("Centre Excursionista Puigcastellar")
 
     assert "c/1" in driver.current_url.lower()
 

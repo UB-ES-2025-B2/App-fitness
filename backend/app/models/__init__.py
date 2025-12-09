@@ -16,5 +16,11 @@ from .post_like_model import PostLike
 from .email_verification import EmailVerification
 from .comunity_model import Community
 from .event_model import Event
+from .city_model import City
+from .activity_model import Activity
+from .user_activity_model import UserActivity
+from .repost_model import Repost
+from .report_model import Report
+from .post_bookmark_model import Bookmark
 
-__all__ = ["User", "Post", "PostLike", "follow", "EmailVerification"]
+__all__ = ["User", "Post", "PostLike", "follow", "EmailVerification", "City", "Activity", "UserActivity","Bookmark"]
