@@ -14,6 +14,18 @@ import {
     CheckCircle,
 } from "lucide-react";
 
+type Serie = {
+  reps: string;
+  weight: string;
+};
+
+type TrainingExercise = {
+  muscle: string | null;
+  name: string;
+  series: Serie[];
+};
+
+
 // ----------------------------
 // EJERCICIOS REALES POR GRUPO
 // ----------------------------
@@ -58,8 +70,10 @@ const MOTIVATION = [
 ];
 
 
+
+
 export default function EntrenarPage() {
-    const [training, setTraining] = useState<any[]>([]);
+    const [training, setTraining] = useState<TrainingExercise[]>([]);
     const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
     const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
 
@@ -77,10 +91,19 @@ export default function EntrenarPage() {
 
     // TIMER REAL
     useEffect(() => {
-        let interval: any = null;
-        if (running) interval = setInterval(() => setTimer((t) => t + 1), 1000);
-        return () => clearInterval(interval);
+        let interval: ReturnType<typeof setInterval> | null = null;
+
+        if (running) {
+            interval = setInterval(() => setTimer((t) => t + 1), 1000);
+        }
+
+        return () => {
+            if (interval !== null) {
+                clearInterval(interval);
+            }
+        };
     }, [running]);
+
     useEffect(() => {
         const interval = setInterval(() => {
             const randomMessage = MOTIVATION[Math.floor(Math.random() * MOTIVATION.length)];
@@ -127,13 +150,18 @@ export default function EntrenarPage() {
         );
     };
 
-    const updateSerie = (i: number, s: number, field: string, value: string) => {
+    const updateSerie = (
+        i: number,
+        s: number,
+        field: "reps" | "weight",
+        value: string
+    ) => {
         setTraining((prev) =>
             prev.map((e, ei) =>
                 ei === i
                     ? {
                         ...e,
-                        series: e.series.map((serie: any, si: number) =>
+                        series: e.series.map((serie: Serie, si: number) =>
                             si === s ? { ...serie, [field]: value } : serie
                         ),
                     }
@@ -141,6 +169,7 @@ export default function EntrenarPage() {
             )
         );
     };
+
 
     const deleteExercise = (i: number) => {
         setTraining((prev) => prev.filter((_, idx) => idx !== i));
@@ -159,7 +188,11 @@ export default function EntrenarPage() {
 
     const totalReps = training.reduce(
         (sum, ex) =>
-            sum + ex.series.reduce((s: number, serie: any) => s + Number(serie.reps || 0), 0),
+            sum +
+            ex.series.reduce(
+                (s: number, serie: Serie) => s + Number(serie.reps || 0),
+                0
+            ),
         0
     );
 
@@ -167,7 +200,7 @@ export default function EntrenarPage() {
         (sum, ex) =>
             sum +
             ex.series.reduce(
-                (s: number, serie: any) =>
+                (s: number, serie: Serie) =>
                     s + Number(serie.reps || 0) * Number(serie.weight || 0),
                 0
             ),
@@ -317,7 +350,7 @@ export default function EntrenarPage() {
                             </button>
                         </div>
 
-                        {ex.series.map((serie: any, s: number) => (
+                        {ex.series.map((serie: Serie, s: number) => (
                             <div key={s} className="flex gap-3 mb-3">
                                 <input
                                     type="number"

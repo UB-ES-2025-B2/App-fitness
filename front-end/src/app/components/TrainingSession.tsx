@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, ChangeEvent } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Play, Pause, CheckCircle, Dumbbell, Timer, Trophy } from "lucide-react";
+
 
 // Datos Mock (esto podría venir de tu API/BD en el futuro)
 const MUSCLE_GROUPS = {
@@ -120,7 +121,11 @@ export default function TrainingSession({ onClose }: { onClose: () => void }) {
                   <span className="text-sm font-semibold text-gray-600 dark:text-gray-300 uppercase">Grupo Muscular</span>
                   <select
                     value={selectedMuscle}
-                    onChange={(e) => setSelectedMuscle(e.target.value as any)}
+                    onChange={(e: ChangeEvent<HTMLSelectElement>) =>
+                      setSelectedMuscle(
+                        e.target.value as keyof typeof MUSCLE_GROUPS | ""
+                      )
+                    }
                     className="mt-2 w-full p-4 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-lg focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm"
                   >
                     <option value="" disabled>Selecciona un grupo...</option>
