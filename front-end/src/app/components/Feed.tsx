@@ -426,13 +426,28 @@ export default function Feed() {
 
   return (
     <section className="w-full py-4 fade-in">
-      <div className="mb-4 flex items-center justify-between gap-4">
+      <div className="mb-4 flex items-center justify-center gap-6 relative">
 
-        <div>
+        {/* Temática */}
+        <div className="absolute left-0">
           <TopicDropdown topic={topic} setTopic={setTopic} topics={TOPICS} />
         </div>
 
-        <div className="flex-1 flex justify-end">
+        {/* --- BOTÓN ENTRAR + GRANDE + CENTRADO --- */}
+        <Link
+          href="/entrenar"
+          className="inline-flex items-center gap-3 px-6 py-3 
+                   rounded-full text-white font-semibold text-lg
+                   bg-gradient-to-br from-blue-600 to-blue-400
+                   shadow-xl hover:scale-105 active:scale-95 
+                   transition-all"
+        >
+          <Dumbbell size={22} />
+          Entrenar
+        </Link>
+
+        {/* Ordenar */}
+        <div className="absolute right-0">
           <FeedFilters sortOrder={sortOrder} setSortOrder={setSortOrder} />
         </div>
 
@@ -513,6 +528,7 @@ function PostContent({
   handleBookmarkPost: (id: number) => void;
 
 }) {
+
   return (
     <div
       className={
