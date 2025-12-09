@@ -16,31 +16,12 @@ def test_busqueda_usuario(driver):
     time.sleep(1)
 
     login.login("toni@example.com", "app-fitness1")
-    time.sleep(15)
+    time.sleep(10)
 
-    wait = WebDriverWait(driver, 15)
-    try:
-        card = wait.until(
-            EC.element_to_be_clickable(
-                (
-                    By.XPATH,
-                    # h2 o h3 que contiene el texto, y subimos al contenedor clickable
-                    "//*[self::h2 or self::h3]"
-                    "[contains(normalize-space(.), 'Centre Excursionista Puigcastellar')]"
-                    "/ancestor::*[self::a or self::article or self::div][1]"
-                )
-            )
-        )
-    except Exception as e:
-        raise AssertionError(
-            "No se encontró la tarjeta de 'Centre Excursionista Puigcastellar' "
-            "en la página de comunidades. Revisa el texto del título o el selector XPath."
-        ) from e
-
-    # ensure visible and click
-    driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", card)
-    driver.execute_script("arguments[0].click();", card)
+    home.buscar("Centre Excursionista Puigcastellar")
     time.sleep(5)
+
+    resultados.abrir_resultado("Centre Excursionista Puigcastellar")
 
     assert "c/1" in driver.current_url.lower()
 
