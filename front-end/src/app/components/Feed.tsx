@@ -6,6 +6,8 @@ import { Topic, useTopic } from "./TopicContext";
 import { motion } from "framer-motion";
 import Image from 'next/image';
 import ReportForm from "./ReportForm";
+import TrainingSession from "./TrainingSession";
+import { Dumbbell } from "lucide-react"; // Asegúrate de tener lucide-react o usa un SVG
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 const TOPICS: Topic[] = ["Todos", "Fútbol", "Básquet", "Montaña"];
@@ -45,12 +47,12 @@ type BackendPost = {
   date?: string | null;
   created_at?: string | null;
   timestamp?: string | null;
-  user?: { 
-  id: number; 
-  username: string; 
-  name?: string | null;
-  avatar_url?: string | null;   // ⭐ AÑADIDO
-} | null;
+  user?: {
+    id: number;
+    username: string;
+    name?: string | null;
+    avatar_url?: string | null;
+  } | null;
   likes?: number;
   liked?: boolean;
   likedByMe?: boolean;
@@ -81,9 +83,9 @@ function normalizePost(p: BackendPost): Post {
       ? sourcePost.user.id
       : undefined;
   const avatar =
-  typeof sourcePost.user === "object"
-    ? sourcePost.user?.avatar_url || null
-    : null;
+    typeof sourcePost.user === "object"
+      ? sourcePost.user?.avatar_url || null
+      : null;
 
 
   const bestDate =
@@ -512,25 +514,58 @@ function PostContent({
 
 }) {
   return (
-    <div className={post.type === 'repost' ? "border border-gray-200 dark:border-slate-700 p-4 rounded-xl" : ""}>
-      <div className="flex items-center justify-between mb-2">
-        {post.userId ? (
-          <Link
-            href={`/usuario/${post.userId}`}
-            className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
-          >
-            {post.user}
+    <div
+      className={
+        post.type === "repost"
+          ? "border border-gray-200 dark:border-slate-700 p-4 rounded-xl"
+          : ""
+      }
+    >
+      {/* --- CABECERA DEL POST --- */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          {/* FOTO DE PERFIL */}
+          <Link href={`/usuario/${post.userId ?? ""}`}>
+            <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-700/40 flex items-center justify-center text-white text-lg font-semibold shadow-md hover:scale-105 transition-transform">
+              {post.avatar ? (
+                <Image
+                  src={post.avatar}
+                  alt="Avatar usuario"
+                  width={40}
+                  height={40}
+                  className="object-cover"
+                />
+              ) : (
+                <span>{post.user.charAt(0).toUpperCase()}</span>
+              )}
+            </div>
           </Link>
-        ) : (
-          <h2 className="font-semibold text-blue-600 dark:text-blue-400">{post.user}</h2>
-        )}
-        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+
+          {/* NOMBRE */}
+          {post.userId ? (
+            <Link
+              href={`/usuario/${post.userId}`}
+              className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              {post.user}
+            </Link>
+          ) : (
+            <span className="font-semibold text-blue-600 dark:text-blue-400">
+              {post.user}
+            </span>
+          )}
+        </div>
+
+        {/* TEMA */}
+        <span className="text-xs font-medium text-gray-400 dark:text-gray-400 uppercase tracking-wide">
           {post.topic}
         </span>
       </div>
 
+      {/* TEXTO */}
       <p className="text-gray-200 leading-relaxed">{post.text}</p>
 
+      {/* IMAGEN */}
       {post.image && (
         <div className="mt-3 overflow-hidden rounded-xl">
           <img
@@ -540,6 +575,7 @@ function PostContent({
           />
         </div>
       )}
+
 
       <div className="mt-3 flex items-center gap-3">
         <button
@@ -555,14 +591,14 @@ function PostContent({
         </button>
 
         <button
-        onClick={() => handleRepost(post.id)}
-        className="flex items-center gap-1 text-sm 
+          onClick={() => handleRepost(post.id)}
+          className="flex items-center gap-1 text-sm 
         text-gray-600 dark:text-gray-300 
         hover:text-green-500 dark:hover:text-green-400
         transition-all duration-200 
         hover:scale-105 active:scale-95"
-      >
-            <svg
+        >
+          <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
             fill="currentColor"
@@ -576,13 +612,13 @@ function PostContent({
         </button>
 
         <button
-        onClick={() => handleBookmarkPost(post.id)}
-        className="flex items-center gap-1 text-sm 
+          onClick={() => handleBookmarkPost(post.id)}
+          className="flex items-center gap-1 text-sm 
         text-gray-600 dark:text-gray-300 
         hover:text-amber-500 dark:hover:text-amber-400
         transition-all duration-200 
         hover:scale-105 active:scale-95"
-         >
+        >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
@@ -608,13 +644,13 @@ function PostContent({
           </span>
         )}
         <button
-        onClick={() => handleOpenReport(post.id)}
-        className="flex items-center gap-1 text-xs 
+          onClick={() => handleOpenReport(post.id)}
+          className="flex items-center gap-1 text-xs 
         text-red-500 dark:text-red-400 
         hover:text-red-300 dark:hover:text-red-200
         transition-all duration-200 
         hover:scale-105 active:scale-95 ml-auto"
-><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        ><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
             <line x1="12" y1="9" x2="12" y2="13" />
             <line x1="12" y1="17" x2="12.01" y2="17" />
@@ -734,11 +770,17 @@ function FeedFilters({
   return (
     <div className="relative w-full flex justify-end" ref={ref}>
       <button
-        className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-sm flex items-center gap-2 shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700 transition"
+        aria-haspopup="listbox"
+        aria-expanded={open}
         onClick={() => setOpen(!open)}
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-full 
+             border border-gray-300 dark:border-slate-600 
+             bg-white dark:bg-slate-700/60 
+             shadow-sm hover:bg-blue-50 dark:hover:bg-slate-600 
+             text-sm transition-all"
       >
-        Ordenar:
-        <span className="font-medium text-blue-600 dark:text-blue-400">
+        <span>Ordenar:</span>
+        <span className="font-medium text-blue-700 dark:text-blue-400">
           {sortOrder === "DESC" ? "Más reciente" : "Más antiguo"}
         </span>
 
