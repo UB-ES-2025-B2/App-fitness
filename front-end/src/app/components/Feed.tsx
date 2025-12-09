@@ -6,6 +6,8 @@ import { Topic, useTopic } from "./TopicContext";
 import { motion } from "framer-motion";
 import Image from 'next/image';
 import ReportForm from "./ReportForm";
+import TrainingSession from "./TrainingSession";
+import { Dumbbell } from "lucide-react"; // Asegúrate de tener lucide-react o usa un SVG
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE;
 const TOPICS: Topic[] = ["Todos", "Fútbol", "Básquet", "Montaña"];
@@ -25,6 +27,7 @@ type PostBase = {
 type OriginalContent = PostBase & {
   user: string;
   userId?: number;
+  avatar?: string | null;
   type?: 'original' | 'repost';
 };
 
@@ -44,7 +47,12 @@ type BackendPost = {
   date?: string | null;
   created_at?: string | null;
   timestamp?: string | null;
-  user?: { id: number; username: string; name?: string | null } | null;
+  user?: {
+    id: number;
+    username: string;
+    name?: string | null;
+    avatar_url?: string | null;
+  } | null;
   likes?: number;
   liked?: boolean;
   likedByMe?: boolean;
@@ -74,6 +82,11 @@ function normalizePost(p: BackendPost): Post {
     typeof sourcePost.user === "object" && sourcePost.user?.id
       ? sourcePost.user.id
       : undefined;
+  const avatar =
+    typeof sourcePost.user === "object"
+      ? sourcePost.user?.avatar_url || null
+      : null;
+
 
   const bestDate =
     sourcePost.date ||
@@ -88,6 +101,7 @@ function normalizePost(p: BackendPost): Post {
     image: sourcePost.image ?? undefined,
     user: userName,
     userId,
+    avatar,
     likeCount: sourcePost.likes ?? 0,
     likedByMe: sourcePost.likedByMe ?? sourcePost.liked ?? false,
     bookmarkedByMe: sourcePost.bookmarkedByMe ?? false,
@@ -139,7 +153,7 @@ export default function Feed() {
         // 1. Leer token de localStorage (igual que haces en like/bookmark)
         const raw = localStorage.getItem("ubfitness_tokens");
         let accessToken: string | null = null;
-  
+
         if (raw) {
           try {
             const parsed = JSON.parse(raw);
@@ -148,7 +162,7 @@ export default function Feed() {
             console.error("Invalid ubfitness_tokens in localStorage", e);
           }
         }
-  
+
         // 2. Construir headers (con o sin Authorization)
         const headers: HeadersInit = {
           "Content-Type": "application/json",
@@ -156,33 +170,33 @@ export default function Feed() {
         if (accessToken) {
           headers["Authorization"] = `Bearer ${accessToken}`;
         }
-  
+
         // 3. Hacer el fetch con headers
         const res = await fetch(`${API_BASE}/api/posts/`, {
           headers,
         });
-  
+
         if (!res.ok) throw new Error("Error cargando posts");
         const data: BackendPost[] = await res.json();
         setPosts(data.map(normalizePost));
       } catch (err) {
         console.error(err);
-        setError("No s'han pogut carregar les publicacions. Intenta-ho més tard.");
+        setError("No se han podido cargar las publicaciones. Intentalo más tarde.");
       } finally {
         setLoading(false);
       }
     };
-  
+
     fetchPosts();
-  
+
     const onNewPost = (e: Event) => {
       const detail = (e as CustomEvent<Post>).detail;
       setPosts((prev) => [detail, ...prev]);
     };
-  
+
     window.addEventListener("new-post", onNewPost as EventListener);
     return () => window.removeEventListener("new-post", onNewPost as EventListener);
-  }, []);  
+  }, []);
 
 
   const handleRepost = async (postId: number) => {
@@ -391,7 +405,7 @@ export default function Feed() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          Carregant publicacions...
+          Cargando publicaciones...
         </motion.p>
       </div>
     );
@@ -412,13 +426,28 @@ export default function Feed() {
 
   return (
     <section className="w-full py-4 fade-in">
-      <div className="mb-4 flex items-center justify-between gap-4">
+      <div className="mb-4 flex items-center justify-center gap-6 relative">
 
-        <div>
+        {/* Temática */}
+        <div className="absolute left-0">
           <TopicDropdown topic={topic} setTopic={setTopic} topics={TOPICS} />
         </div>
 
-        <div className="flex-1 flex justify-end">
+        {/* --- BOTÓN ENTRAR + GRANDE + CENTRADO --- */}
+        <Link
+          href="/entrenar"
+          className="inline-flex items-center gap-3 px-6 py-3 
+           rounded-full !text-white font-semibold text-lg
+           bg-gradient-to-br from-blue-600 to-blue-400
+           shadow-xl hover:scale-105 active:scale-95 
+           transition-all"
+        >
+          <Dumbbell size={22} />
+          Entrenar
+        </Link>
+
+        {/* Ordenar */}
+        <div className="absolute right-0">
           <FeedFilters sortOrder={sortOrder} setSortOrder={setSortOrder} />
         </div>
 
@@ -499,26 +528,60 @@ function PostContent({
   handleBookmarkPost: (id: number) => void;
 
 }) {
+
   return (
-    <div className={post.type === 'repost' ? "border border-gray-200 dark:border-slate-700 p-4 rounded-xl" : ""}>
-      <div className="flex items-center justify-between mb-2">
-        {post.userId ? (
-          <Link
-            href={`/usuario/${post.userId}`}
-            className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
-          >
-            {post.user}
+    <div
+      className={
+        post.type === "repost"
+          ? "border border-gray-200 dark:border-slate-700 p-4 rounded-xl"
+          : ""
+      }
+    >
+      {/* --- CABECERA DEL POST --- */}
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-3">
+          {/* FOTO DE PERFIL */}
+          <Link href={`/usuario/${post.userId ?? ""}`}>
+            <div className="w-10 h-10 rounded-full overflow-hidden bg-slate-700/40 flex items-center justify-center text-white text-lg font-semibold shadow-md hover:scale-105 transition-transform">
+              {post.avatar ? (
+                <Image
+                  src={post.avatar}
+                  alt="Avatar usuario"
+                  width={40}
+                  height={40}
+                  className="object-cover"
+                />
+              ) : (
+                <span>{post.user.charAt(0).toUpperCase()}</span>
+              )}
+            </div>
           </Link>
-        ) : (
-          <h2 className="font-semibold text-blue-600 dark:text-blue-400">{post.user}</h2>
-        )}
-        <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+
+          {/* NOMBRE */}
+          {post.userId ? (
+            <Link
+              href={`/usuario/${post.userId}`}
+              className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+            >
+              {post.user}
+            </Link>
+          ) : (
+            <span className="font-semibold text-blue-600 dark:text-blue-400">
+              {post.user}
+            </span>
+          )}
+        </div>
+
+        {/* TEMA */}
+        <span className="text-xs font-medium text-gray-400 dark:text-gray-400 uppercase tracking-wide">
           {post.topic}
         </span>
       </div>
 
-      <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{post.text}</p>
+      {/* TEXTO */}
+      <p className="text-gray-200 leading-relaxed">{post.text}</p>
 
+      {/* IMAGEN */}
       {post.image && (
         <div className="mt-3 overflow-hidden rounded-xl">
           <img
@@ -529,10 +592,15 @@ function PostContent({
         </div>
       )}
 
+
       <div className="mt-3 flex items-center gap-3">
         <button
           onClick={() => handleToggleLike(post.id)}
-          className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400"
+          className="flex items-center gap-1 text-sm 
+        !text-white
+        hover:text-blue-500 dark:hover:text-blue-400
+        transition-all duration-200 
+        hover:scale-105 active:scale-95"
         >
           <span>{post.likedByMe ? "💖" : "🤍"}</span>
           <span>{post.likeCount ?? 0} Me gusta</span>
@@ -540,7 +608,11 @@ function PostContent({
 
         <button
           onClick={() => handleRepost(post.id)}
-          className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300 hover:text-green-600 dark:hover:text-green-400"
+          className="flex items-center gap-1 text-sm 
+        !text-white 
+        hover:text-green-500 dark:hover:text-green-400
+        transition-all duration-200 
+        hover:scale-105 active:scale-95"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -557,7 +629,11 @@ function PostContent({
 
         <button
           onClick={() => handleBookmarkPost(post.id)}
-          className="flex items-center gap-1 text-sm text-gray-600 dark:text-gray-300 hover:text-amber-600 dark:hover:text-amber-400"
+          className="flex items-center gap-1 text-sm 
+        !text-white
+        hover:text-amber-500 dark:hover:text-amber-400
+        transition-all duration-200 
+        hover:scale-105 active:scale-95"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -585,7 +661,11 @@ function PostContent({
         )}
         <button
           onClick={() => handleOpenReport(post.id)}
-          className="flex items-center gap-1 text-xs text-red-500 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 ml-auto"
+          className="flex items-center gap-1 text-xs 
+        !text-white 
+        hover:text-red-300 dark:hover:text-red-200
+        transition-all duration-200 
+        hover:scale-105 active:scale-95 ml-auto"
         ><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
             <line x1="12" y1="9" x2="12" y2="13" />
@@ -706,11 +786,17 @@ function FeedFilters({
   return (
     <div className="relative w-full flex justify-end" ref={ref}>
       <button
-        className="px-4 py-2 rounded-xl bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 text-sm flex items-center gap-2 shadow-sm hover:bg-gray-50 dark:hover:bg-slate-700 transition"
+        aria-haspopup="listbox"
+        aria-expanded={open}
         onClick={() => setOpen(!open)}
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-full 
+             border border-gray-300 dark:border-slate-600 
+             bg-white dark:bg-slate-700/60 
+             shadow-sm hover:bg-blue-50 dark:hover:bg-slate-600 
+             text-sm transition-all"
       >
-        Ordenar:
-        <span className="font-medium text-blue-600 dark:text-blue-400">
+        <span>Ordenar:</span>
+        <span className="font-medium text-blue-700 dark:text-blue-400">
           {sortOrder === "DESC" ? "Más reciente" : "Más antiguo"}
         </span>
 

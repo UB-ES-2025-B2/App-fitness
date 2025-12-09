@@ -488,7 +488,10 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 lg:px-0 py-6">
-      <section className="bg-white rounded-2xl shadow-md p-5 mb-6 relative">
+      <section className="bg-white/90 backdrop-blur-xl border border-gray-200/40 
+        rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] p-6 mb-6 relative 
+        transition-all duration-300">
+
 
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -617,7 +620,8 @@ export default function ProfilePage() {
               {visiblePosts.map((p) => (
                 <article
                   key={p.id + p.type + (p.repostedById || 0)}
-                  className="bg-white rounded-2xl shadow-md p-4 relative"
+                  className="bg-white/90 backdrop-blur-xl border border-gray-200/50 
+                  rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 p-5 relative"
                 >
                   {activeTab === "POSTS" && (
                     <button
@@ -768,7 +772,7 @@ function SettingsDropdown({
       <button
         aria-label="Abrir configuración de perfil"
         onClick={() => setOpen((v) => !v)}
-        className="rounded-full bg-white border shadow-sm p-1 hover:ring-2 hover:ring-blue-400 transition"
+        className="rounded-full bg-transparent border shadow-sm p-1 hover:ring-2 hover:ring-blue-400 transition"
       >
         <Image
           src="/images/ProfileConfig.png"
@@ -890,8 +894,9 @@ function Input({
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="p-3 text-center">
-      <div className="text-lg font-semibold">{value}</div>
-      <div className="text-xs text-gray-500">{label}</div>
+      <div className="text-xl font-bold text-slate-800 tracking-tight">{value}</div>
+    <div className="text-[11px] uppercase text-gray-400 tracking-wide">{label}</div>
+
     </div>
   );
 }

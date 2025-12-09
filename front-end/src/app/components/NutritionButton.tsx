@@ -34,6 +34,7 @@ export default function NutritionButton() {
     "/registration",
     "/verify-email",
     "/verify-email-start",
+    "/entrenar",
   ];
 
   if (!isLogged || hiddenOn.includes(pathname)) {
@@ -44,12 +45,21 @@ export default function NutritionButton() {
     window.dispatchEvent(new Event("toggle-nutri-chat"));
   };
 
+  
   return (
     <button
       type="button"
       onClick={openChat}
       aria-label="Abrir chat Nutricionista IA"
-      className="fixed bottom-24 right-6 z-[55] rounded-full bg-white shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-400"
+      className="fixed bottom-24 right-6 rounded-full shadow-lg 
+           bg-white dark:bg-slate-700/60 
+           border border-gray-300 dark:border-slate-600 
+           p-0 
+           focus:outline-none focus:ring-2 focus:ring-emerald-400 
+           hover:bg-blue-50 dark:hover:bg-slate-600 
+           hover:scale-105 active:scale-95 
+           transition-transform z-[55]"
+
     >
       <Image
         src="/images/GoToNutrition.png"
