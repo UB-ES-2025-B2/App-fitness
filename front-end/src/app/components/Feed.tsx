@@ -181,7 +181,7 @@ export default function Feed() {
         setPosts(data.map(normalizePost));
       } catch (err) {
         console.error(err);
-        setError("No s'han pogut carregar les publicacions. Intenta-ho més tard.");
+        setError("No se han podido cargar las publicaciones. Intentalo más tarde.");
       } finally {
         setLoading(false);
       }
@@ -405,7 +405,7 @@ export default function Feed() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          Carregant publicacions...
+          Cargando publicaciones...
         </motion.p>
       </div>
     );
@@ -437,10 +437,10 @@ export default function Feed() {
         <Link
           href="/entrenar"
           className="inline-flex items-center gap-3 px-6 py-3 
-                   rounded-full text-white font-semibold text-lg
-                   bg-gradient-to-br from-blue-600 to-blue-400
-                   shadow-xl hover:scale-105 active:scale-95 
-                   transition-all"
+           rounded-full !text-white font-semibold text-lg
+           bg-gradient-to-br from-blue-600 to-blue-400
+           shadow-xl hover:scale-105 active:scale-95 
+           transition-all"
         >
           <Dumbbell size={22} />
           Entrenar
@@ -597,7 +597,7 @@ function PostContent({
         <button
           onClick={() => handleToggleLike(post.id)}
           className="flex items-center gap-1 text-sm 
-        text-gray-600 dark:text-gray-300 
+        !text-white
         hover:text-blue-500 dark:hover:text-blue-400
         transition-all duration-200 
         hover:scale-105 active:scale-95"
@@ -609,7 +609,7 @@ function PostContent({
         <button
           onClick={() => handleRepost(post.id)}
           className="flex items-center gap-1 text-sm 
-        text-gray-600 dark:text-gray-300 
+        !text-white 
         hover:text-green-500 dark:hover:text-green-400
         transition-all duration-200 
         hover:scale-105 active:scale-95"
@@ -630,7 +630,7 @@ function PostContent({
         <button
           onClick={() => handleBookmarkPost(post.id)}
           className="flex items-center gap-1 text-sm 
-        text-gray-600 dark:text-gray-300 
+        !text-white
         hover:text-amber-500 dark:hover:text-amber-400
         transition-all duration-200 
         hover:scale-105 active:scale-95"
@@ -662,7 +662,7 @@ function PostContent({
         <button
           onClick={() => handleOpenReport(post.id)}
           className="flex items-center gap-1 text-xs 
-        text-red-500 dark:text-red-400 
+        !text-white 
         hover:text-red-300 dark:hover:text-red-200
         transition-all duration-200 
         hover:scale-105 active:scale-95 ml-auto"

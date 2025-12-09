@@ -44,6 +44,7 @@ export default function AddPostButton() {
     "/registration",
     "/verify-email",
     "/verify-email-start",
+    "/entrenar",
   ];
 
   if (!isLogged || hiddenOn.includes(pathname)) return null;

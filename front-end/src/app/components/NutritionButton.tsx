@@ -34,6 +34,7 @@ export default function NutritionButton() {
     "/registration",
     "/verify-email",
     "/verify-email-start",
+    "/entrenar",
   ];
 
   if (!isLogged || hiddenOn.includes(pathname)) {
