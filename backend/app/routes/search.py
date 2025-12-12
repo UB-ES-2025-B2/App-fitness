@@ -10,10 +10,11 @@ bp = Blueprint("search", __name__, url_prefix="/api/search")
 @bp.get("/")
 def search():
     q = (request.args.get("q") or "").strip()
-    limit = min(int(request.args.get("limit", 5)), 20)
+    limit = min(int(request.args.get("limit", 10)), 20)
+    offset = max(int(request.args.get("offset", 0)), 0)
 
     if not q:
-        return jsonify({"communities": [], "users": [], "cities": []})
+        return jsonify({"communities": [], "users": [], "cities": [], "has_more": False})
 
     like = f"%{q}%"
 
@@ -22,9 +23,13 @@ def search():
         db.session.query(Community.id, Community.name, getattr(Community, "slug", None))
         .filter(func.lower(Community.name).like(func.lower(like)))
         .order_by(Community.name.asc())
-        .limit(limit)
+        .offset(offset).limit(limit + 1)
         .all()
     )
+
+    has_more_communities = len(communities) > limit
+    communities = communities[:limit]
+
     communities_json = [
         {"id": c.id, "name": c.name, "slug": getattr(c, "slug", None)}
         for c in communities
@@ -38,9 +43,11 @@ def search():
             func.lower(func.coalesce(User.name, "")).like(func.lower(like))
         )
         .order_by(User.username.asc())
-        .limit(limit)
+        .offset(offset).limit(limit + 1)
         .all()
     )
+    has_more_users = len(users) > limit
+    users = users[:limit]
     users_json = [{"id": u.id, "username": u.username, "name": u.name} for u in users]
 
     # CITIES
@@ -48,9 +55,11 @@ def search():
         db.session.query(City.id, City.name, City.slug)
         .filter(func.lower(City.name).like(func.lower(like)))
         .order_by(City.name.asc())
-        .limit(limit)
+        .offset(offset).limit(limit + 1)
         .all()
     )
+    has_more_cities = len(cities) > limit
+    cities = cities[:limit]
     cities_json = [
         {"id": c.id, "name": c.name, "slug": c.slug}
         for c in cities
@@ -60,4 +69,5 @@ def search():
         "communities": communities_json,
         "users": users_json,
         "cities": cities_json,
+        "has_more": has_more_communities or has_more_users or has_more_cities
     })
