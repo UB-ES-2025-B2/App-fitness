@@ -469,7 +469,7 @@ export default function ProfilePage() {
 
   return (
     <div className="max-w-3xl mx-auto px-4 lg:px-0 py-6">
-      <section className="relative z-50 bg-white/90 backdrop-blur-xl border border-gray-200/40
+      <section className="relative bg-white/90 backdrop-blur-xl border border-gray-200/40
         rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] p-6 mb-6 
         transition-all duration-300">
 
