@@ -40,7 +40,6 @@ async function updateMe(patch: Partial<{
   username: string;
   avatar_url: string | null;
   preferences: string[];
-  ocultar_info: boolean;
 }>) {
   const res = await authFetch("/auth/me", {
     method: "PATCH",
@@ -179,27 +178,15 @@ async function fetchUserBookmarks(userId: number): Promise<ApiPost[]> {
 
 type Profile = {
   nombre: string;
-  apellido1: string;
-  apellido2: string;
   username: string;
-  fechaNacimiento: string;
-  lugarNacimiento: string;
-  direccion: string;
   temas: Array<"Fútbol" | "Básquet" | "Montaña">;
-  ocultarInfo: boolean;
   avatarUrl?: string;
 };
 
 const INITIAL_PROFILE: Profile = {
   nombre: "",
-  apellido1: "",
-  apellido2: "",
   username: "",
-  fechaNacimiento: "",
-  lugarNacimiento: "",
-  direccion: "",
   temas: [],
-  ocultarInfo: true,
   avatarUrl: undefined,
 };
 
@@ -418,19 +405,13 @@ export default function ProfilePage() {
 
       setProfile({
         nombre: me.name ?? "",
-        apellido1: "",
-        apellido2: "",
         username: me.username ?? "",
-        fechaNacimiento: "",
-        lugarNacimiento: "",
-        direccion: "",
         avatarUrl: me.avatar_url ?? undefined,
         temas: Array.isArray(me.preferences)
           ? (me.preferences as string[]).filter((t) =>
             ["Fútbol", "Básquet", "Montaña"].includes(t)
           ) as Array<"Fútbol" | "Básquet" | "Montaña">
           : [],
-        ocultarInfo: typeof me.ocultar_info === "boolean" ? me.ocultar_info : true,
       });
 
       try {
@@ -481,15 +462,15 @@ export default function ProfilePage() {
   const PH = "Aún no almacenado";
   const show = (v?: string) => (v && v.trim() ? v : PH);
   const fullName =
-    [profile.nombre, profile.apellido1, profile.apellido2]
+    [profile.nombre]
       .filter(Boolean)
       .join(" ")
       .trim() || PH;
 
   return (
     <div className="max-w-3xl mx-auto px-4 lg:px-0 py-6">
-      <section className="bg-white/90 backdrop-blur-xl border border-gray-200/40 
-        rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] p-6 mb-6 relative 
+      <section className="relative z-50 bg-white/90 backdrop-blur-xl border border-gray-200/40
+        rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] p-6 mb-6 
         transition-all duration-300">
 
 
@@ -530,7 +511,7 @@ export default function ProfilePage() {
 
             <div>
               <h2 className="text-xl font-semibold">
-                {profile.nombre} {profile.apellido1} {profile.apellido2}
+                {profile.nombre}
               </h2>
               <p className="text-sm text-gray-500">@{profile.username}</p>
             </div>
@@ -756,7 +737,6 @@ function SettingsDropdown({
         name: form.nombre,
         username: form.username,
         preferences: form.temas,
-        ocultar_info: form.ocultarInfo,
       });
       onSave(form);
       setOpen(false);
@@ -794,20 +774,9 @@ function SettingsDropdown({
           <div className="grid grid-cols-1 gap-3">
             <div className="grid grid-cols-3 gap-2">
               <Input label="Nombre" value={form.nombre} onChange={(v) => setForm({ ...form, nombre: v })} />
-              <Input label="Apellido 1" value={form.apellido1} onChange={(v) => setForm({ ...form, apellido1: v })} />
-              <Input label="Apellido 2" value={form.apellido2} onChange={(v) => setForm({ ...form, apellido2: v })} />
             </div>
 
             <Input label="Username" value={form.username} onChange={(v) => setForm({ ...form, username: v })} prefix="@" />
-
-
-
-            <div className="grid grid-cols-2 gap-2">
-              <Input type="date" label="Fecha de nacimiento" value={form.fechaNacimiento} onChange={(v) => setForm({ ...form, fechaNacimiento: v })} />
-              <Input label="Lugar de nacimiento" value={form.lugarNacimiento} onChange={(v) => setForm({ ...form, lugarNacimiento: v })} />
-            </div>
-
-            <Input label="Dirección" value={form.direccion} onChange={(v) => setForm({ ...form, direccion: v })} />
 
             <div>
               <p className="text-xs font-medium text-gray-600 mb-1">Temáticas</p>
@@ -826,18 +795,6 @@ function SettingsDropdown({
               </div>
             </div>
 
-            <label className="flex items-start gap-2 rounded-lg bg-gray-50 p-3">
-              <input
-                type="checkbox"
-                checked={form.ocultarInfo}
-                onChange={(e) => setForm({ ...form, ocultarInfo: e.target.checked })}
-                className="mt-0.5 accent-blue-600"
-              />
-              <span className="text-sm text-gray-700">
-                Ocultar mi información (nombre, dirección, fecha y lugar de nacimiento).<br />
-                <span className="text-xs text-gray-500">Activado por defecto.</span>
-              </span>
-            </label>
           </div>
 
           <div className="mt-4 flex justify-end gap-2">
