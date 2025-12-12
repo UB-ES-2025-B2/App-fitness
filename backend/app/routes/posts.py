@@ -18,6 +18,12 @@ def list_posts():
       para calcular likedByMe.
     - Si no viene o es inválido, responde igualmente con 200 y likedByMe=False.
     """
+    page = int(request.args.get("page", 1))
+    limit = int(request.args.get("limit", 10))
+    if limit > 50:
+        limit = 50
+    if page < 1:
+        page = 1
     current_user_id = None
 
     auth_header = request.headers.get("Authorization", "")
@@ -61,7 +67,18 @@ def list_posts():
     all_items.sort(key=lambda x: x['sort_date'], reverse=True)
     final_payload = [{k: v for k, v in item.items() if k != 'sort_date'} for item in all_items]
     
-    return jsonify(final_payload)
+    start = (page - 1) * limit
+    end = start + limit
+    slice_payload = final_payload[start:end]
+    has_more = end < len(final_payload)
+
+    return jsonify({
+        "items": slice_payload,
+        "page": page,
+        "limit": limit,
+        "has_more": has_more,
+        "total": len(final_payload),
+    })
 
 
 # 🔹 2️⃣ Llistar posts d’un usuari concret
