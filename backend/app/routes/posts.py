@@ -296,21 +296,37 @@ def get_posts():
 @bp.delete("/<int:post_id>")
 @token_required
 def delete_post(current_user, post_id):
-    """
-    Elimina un post SOLO si pertenece al usuario autenticado.
-    """
     post = Post.query.get(post_id)
     if not post:
         return jsonify({"error": "Post no encontrado"}), 404
 
-    # Asegurarnos de que solo el dueño pueda borrarlo
     if post.user_id != current_user.id:
         return jsonify({"error": "No tienes permiso para eliminar este post"}), 403
 
-    db.session.delete(post)
-    db.session.commit()
+    try:
+        # Reposts que apuntan a este post
+        Repost.query.filter_by(original_post_id=post_id).delete(synchronize_session=False)
 
-    return jsonify({"message": "Post eliminado correctamente"}), 200
+        # Guardados (bookmarks)
+        Bookmark.query.filter_by(post_id=post_id).delete(synchronize_session=False)
+
+        # Reports (si existen)
+        Report.query.filter_by(post_id=post_id).delete(synchronize_session=False)
+
+        # Likes (tabla asociación) -> vaciamos relación
+        for u in post.liked_by.all():
+            post.liked_by.remove(u)
+
+        db.session.delete(post)
+        db.session.commit()
+        return jsonify({"message": "Post eliminado correctamente"}), 200
+
+    except IntegrityError as e:
+        db.session.rollback()
+        return jsonify({
+            "error": "No se pudo eliminar el post por relaciones en BD",
+            "detail": str(e)
+        }), 409
 
 @bp.post("/<int:post_id>/report")
 @token_required
