@@ -1,7 +1,7 @@
 from datetime import timezone
 from flask import Blueprint, jsonify, request, g, current_app
 import jwt
-from app.models import Repost, User, Post, Report, Bookmark
+from app.models import Repost, User, Post, Report, Bookmark, PostLike
 from app import db
 from app.utils.auth_utils import token_required
 from sqlalchemy.exc import IntegrityError
@@ -216,11 +216,23 @@ def like_post(current_user, post_id):
     if not post:
         return jsonify({"error": "Post not found"}), 404
 
-    if not post.liked_by.filter_by(id=current_user.id).first():
-        post.liked_by.append(current_user)
+    existing = PostLike.query.filter_by(user_id=current_user.id, post_id=post_id).first()
+    if existing:
+        # ya estaba likeado → devolvemos estado consistente
+        likes = PostLike.query.filter_by(post_id=post_id).count()
+        return jsonify({"liked": True, "likes": likes}), 200
+
+    db.session.add(PostLike(user_id=current_user.id, post_id=post_id))
+    try:
         db.session.commit()
-        
-    return jsonify({"message": "Liked!", "likes": post.liked_by.count(), "liked": True}), 200
+    except IntegrityError:
+        db.session.rollback()
+        # por si carrera de dos clicks rápidos
+        likes = PostLike.query.filter_by(post_id=post_id).count()
+        return jsonify({"liked": True, "likes": likes}), 200
+
+    likes = PostLike.query.filter_by(post_id=post_id).count()
+    return jsonify({"liked": True, "likes": likes}), 200
 
 
 @bp.delete("/<int:post_id>/like")
@@ -230,11 +242,11 @@ def unlike_post(current_user, post_id):
     if not post:
         return jsonify({"error": "Post not found"}), 404
 
-    if post.liked_by.filter_by(id=current_user.id).first():
-        post.liked_by.remove(current_user)
-        db.session.commit()
-        
-    return jsonify({"message": "Unliked", "likes": post.liked_by.count(), "liked": False}), 200
+    PostLike.query.filter_by(user_id=current_user.id, post_id=post_id).delete(synchronize_session=False)
+    db.session.commit()
+
+    likes = PostLike.query.filter_by(post_id=post_id).count()
+    return jsonify({"liked": False, "likes": likes}), 200
 
 
 @bp.get("/me/likes")
