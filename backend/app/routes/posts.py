@@ -1,7 +1,7 @@
 from datetime import timezone
 from flask import Blueprint, jsonify, request, g, current_app
 import jwt
-from app.models import Repost, User, Post, Report, Bookmark
+from app.models import Repost, User, Post, Report, Bookmark, PostLike
 from app import db
 from app.utils.auth_utils import token_required
 from sqlalchemy.exc import IntegrityError
@@ -18,6 +18,12 @@ def list_posts():
       para calcular likedByMe.
     - Si no viene o es inválido, responde igualmente con 200 y likedByMe=False.
     """
+    page = int(request.args.get("page", 1))
+    limit = int(request.args.get("limit", 10))
+    if limit > 50:
+        limit = 50
+    if page < 1:
+        page = 1
     current_user_id = None
 
     auth_header = request.headers.get("Authorization", "")
@@ -61,7 +67,18 @@ def list_posts():
     all_items.sort(key=lambda x: x['sort_date'], reverse=True)
     final_payload = [{k: v for k, v in item.items() if k != 'sort_date'} for item in all_items]
     
-    return jsonify(final_payload)
+    start = (page - 1) * limit
+    end = start + limit
+    slice_payload = final_payload[start:end]
+    has_more = end < len(final_payload)
+
+    return jsonify({
+        "items": slice_payload,
+        "page": page,
+        "limit": limit,
+        "has_more": has_more,
+        "total": len(final_payload),
+    })
 
 
 # 🔹 2️⃣ Llistar posts d’un usuari concret
@@ -199,11 +216,23 @@ def like_post(current_user, post_id):
     if not post:
         return jsonify({"error": "Post not found"}), 404
 
-    if not post.liked_by.filter_by(id=current_user.id).first():
-        post.liked_by.append(current_user)
+    existing = PostLike.query.filter_by(user_id=current_user.id, post_id=post_id).first()
+    if existing:
+        # ya estaba likeado → devolvemos estado consistente
+        likes = PostLike.query.filter_by(post_id=post_id).count()
+        return jsonify({"liked": True, "likes": likes}), 200
+
+    db.session.add(PostLike(user_id=current_user.id, post_id=post_id))
+    try:
         db.session.commit()
-        
-    return jsonify({"message": "Liked!", "likes": post.liked_by.count(), "liked": True}), 200
+    except IntegrityError:
+        db.session.rollback()
+        # por si carrera de dos clicks rápidos
+        likes = PostLike.query.filter_by(post_id=post_id).count()
+        return jsonify({"liked": True, "likes": likes}), 200
+
+    likes = PostLike.query.filter_by(post_id=post_id).count()
+    return jsonify({"liked": True, "likes": likes}), 200
 
 
 @bp.delete("/<int:post_id>/like")
@@ -213,11 +242,11 @@ def unlike_post(current_user, post_id):
     if not post:
         return jsonify({"error": "Post not found"}), 404
 
-    if post.liked_by.filter_by(id=current_user.id).first():
-        post.liked_by.remove(current_user)
-        db.session.commit()
-        
-    return jsonify({"message": "Unliked", "likes": post.liked_by.count(), "liked": False}), 200
+    PostLike.query.filter_by(user_id=current_user.id, post_id=post_id).delete(synchronize_session=False)
+    db.session.commit()
+
+    likes = PostLike.query.filter_by(post_id=post_id).count()
+    return jsonify({"liked": False, "likes": likes}), 200
 
 
 @bp.get("/me/likes")
@@ -296,21 +325,37 @@ def get_posts():
 @bp.delete("/<int:post_id>")
 @token_required
 def delete_post(current_user, post_id):
-    """
-    Elimina un post SOLO si pertenece al usuario autenticado.
-    """
     post = Post.query.get(post_id)
     if not post:
         return jsonify({"error": "Post no encontrado"}), 404
 
-    # Asegurarnos de que solo el dueño pueda borrarlo
     if post.user_id != current_user.id:
         return jsonify({"error": "No tienes permiso para eliminar este post"}), 403
 
-    db.session.delete(post)
-    db.session.commit()
+    try:
+        # Reposts que apuntan a este post
+        Repost.query.filter_by(original_post_id=post_id).delete(synchronize_session=False)
 
-    return jsonify({"message": "Post eliminado correctamente"}), 200
+        # Guardados (bookmarks)
+        Bookmark.query.filter_by(post_id=post_id).delete(synchronize_session=False)
+
+        # Reports (si existen)
+        Report.query.filter_by(post_id=post_id).delete(synchronize_session=False)
+
+        # Likes (tabla asociación) -> vaciamos relación
+        for u in post.liked_by.all():
+            post.liked_by.remove(u)
+
+        db.session.delete(post)
+        db.session.commit()
+        return jsonify({"message": "Post eliminado correctamente"}), 200
+
+    except IntegrityError as e:
+        db.session.rollback()
+        return jsonify({
+            "error": "No se pudo eliminar el post por relaciones en BD",
+            "detail": str(e)
+        }), 409
 
 @bp.post("/<int:post_id>/report")
 @token_required

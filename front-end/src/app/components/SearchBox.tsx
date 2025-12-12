@@ -20,6 +20,9 @@ export default function SearchBox() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<SearchItem[]>([]);
+  const [limit] = useState(10);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
   const [active, setActive] = useState<number>(-1);
   const ref = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
@@ -67,6 +70,8 @@ export default function SearchBox() {
     if (!q.trim()) {
       setItems([]);
       setOpen(false);
+      setOffset(0);
+      setHasMore(false);
       return;
     }
 
@@ -81,18 +86,19 @@ export default function SearchBox() {
         abortRef.current = ac;
         const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:5000";
         const res = await fetch(
-          `${API_BASE}/api/search?q=${encodeURIComponent(q)}&limit=5`,
+          `${API_BASE}/api/search?q=${encodeURIComponent(q)}&limit=${limit}&offset=${offset}`,
           { signal: ac.signal }
         );
         if (!res.ok) throw new Error("Search error");
-        const data: SearchResponse = await res.json();
+        const data: SearchResponse & { has_more: boolean } = await res.json();
 
         const next: SearchItem[] = [
           ...data.communities.map((c) => ({ kind: "community", ...c } as SearchItem)),
           ...data.users.map((u) => ({ kind: "user", ...u } as SearchItem)),
           ...data.cities.map((c) => ({ kind: "city", ...c } as SearchItem)),
         ];
-        setItems(next);
+        setHasMore(data.has_more);
+        setItems((prev) => (offset === 0 ? next : [...prev, ...next]));
       } catch {
         /* ignore */
       } finally {
@@ -101,7 +107,7 @@ export default function SearchBox() {
     }, 250);
 
     return () => clearTimeout(handle);
-  }, [q]);
+  }, [q, offset, limit]);
 
   return (
     <div className="relative" ref={ref}>
@@ -124,10 +130,10 @@ export default function SearchBox() {
         <input
           type="search"
           value={q}
-          onChange={(e) => setQ(e.target.value)}
+          onChange={(e) => { setQ(e.target.value); setOffset(0); }}
           onFocus={() => setOpen(q.trim().length > 0)}
           onKeyDown={onKeyDown}
-          placeholder="Busca comunidades o perfiles..."
+          placeholder="Busca comunidades, ciudades o perfiles..."
           className="w-full pl-10 pr-4 py-2 text-sm rounded-full bg-gray-100 border border-gray-200 
                      focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 
                      placeholder:text-gray-400 transition-all"
@@ -202,6 +208,18 @@ export default function SearchBox() {
               );
             })}
           </ul>
+          {!loading && hasMore && (
+            <div className="border-t border-gray-200 dark:border-slate-700">
+              <button
+                type="button"
+                onClick={() => setOffset((o) => o + limit)}
+                className="w-full px-4 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-slate-700 text-left"
+              >
+                Ver más resultados
+              </button>
+            </div>
+          )}
+
         </div>
       )}
     </div>

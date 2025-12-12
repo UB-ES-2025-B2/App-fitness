@@ -272,12 +272,6 @@ def login():
         if not user2 or not user2.check_password(password):
             return jsonify({"error": "Credenciales inválidas"}), 401
         user = user2
-    if not _user_is_verified(user):
-        return jsonify({
-            "error": "Debes verificar tu correo antes de iniciar sesión.",
-            "needs_verification": True,
-            "email": user.email
-        }), 403
     
     token = jwt.encode(
         {"user_id": user.id, "type": "access",
@@ -363,51 +357,44 @@ def me():
         return jsonify({"error": msg}), code
 
     if request.method == 'GET':
-        # Devuelve el shape que usa tu front
         return jsonify({
             "id": user.id,
             "name": user.name,
             "email": user.email,
             "username": user.username,
-            # añade estos campos si existen en tu modelo:
-            "avatar_url": getattr(user, "avatar_url", None),
-            "bio": getattr(user, "bio", None),
-            "ocultar_info": getattr(user, "ocultar_info", True),
-            "preferences": getattr(user, "preferences", [])  # si es JSON/array
+            "avatar_url": user.avatar_url,
+            "bio": user.bio,
+            "preferences": user.preferences or []
         }), 200
 
-    # PATCH: actualizar campos permitidos
     data = request.get_json(force=True) or {}
 
-    # Validaciones de unicidad (si cambian name/username)
-    new_name = data.get("name")
-    if new_name and new_name != user.name:
-        if User.query.filter(User.name == new_name, User.id != user.id).first():
+    # --- name ---
+    if "name" in data and data["name"] != user.name:
+        if User.query.filter(User.name == data["name"], User.id != user.id).first():
             return jsonify({"error": "El nombre ya está en uso"}), 400
-        user.name = new_name
+        user.name = data["name"]
 
-    new_username = data.get("username")
-    if new_username and new_username != user.username:
-        if User.query.filter(User.username == new_username, User.id != user.id).first():
+    # --- username ---
+    if "username" in data and data["username"] != user.username:
+        if User.query.filter(User.username == data["username"], User.id != user.id).first():
             return jsonify({"error": "El username ya está en uso"}), 400
-        user.username = new_username
+        user.username = data["username"]
 
-    # Campos opcionales
+    # --- avatar ---
     if "avatar_url" in data:
-        if hasattr(user, "avatar_url"):
-            user.avatar_url = data.get("avatar_url")  # puede ser None
-    if "bio" in data and hasattr(user, "bio"):
-        user.bio = data.get("bio")
-    if "ocultar_info" in data and hasattr(user, "ocultar_info"):
-        user.ocultar_info = bool(data.get("ocultar_info"))
-    if "preferences" in data and hasattr(user, "preferences"):
-        prefs = data.get("preferences") or []
+        user.avatar_url = data["avatar_url"]
+
+    # --- bio ---
+    if "bio" in data:
+        user.bio = data["bio"]
+
+    # --- preferences ---
+    if "preferences" in data:
+        prefs = data["preferences"]
         if not isinstance(prefs, list):
             return jsonify({"error": "preferences debe ser una lista"}), 400
         user.preferences = prefs
-
-    if not _user_is_verified(user):
-            return jsonify({"error": "Correo no verificado"}), 403
 
     db.session.commit()
 
@@ -416,11 +403,9 @@ def me():
         "user": {
             "id": user.id,
             "name": user.name,
-            "email": user.email,
             "username": user.username,
-            "avatar_url": getattr(user, "avatar_url", None),
-            "bio": getattr(user, "bio", None),
-            "ocultar_info": getattr(user, "ocultar_info", True),
-            "preferences": getattr(user, "preferences", [])
+            "avatar_url": user.avatar_url,
+            "bio": user.bio,
+            "preferences": user.preferences or []
         }
     }), 200
