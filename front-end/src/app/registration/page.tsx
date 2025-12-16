@@ -116,10 +116,17 @@ export default function RegisterPage() {
       });
 
       if (!res.ok) {
-        const text = await res.text();
-        console.log(text)
-        throw new Error(text || "Error al registrarse");
+        let msg = "Error al registrarse";
+        try {
+          const data = await res.json();
+          msg = data?.error || data?.message || msg;
+        } catch {
+          const text = await res.text();
+          if (text) msg = text;
+        }
+        throw new Error(msg);
       }
+
       const data = await res.json();
       setNeedsVerification(true);
       setVerificationEmailSentAt(new Date().toISOString());

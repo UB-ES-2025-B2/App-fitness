@@ -131,12 +131,17 @@ function normalizePost(p: BackendPost): Post {
 export default function Feed() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { topic, setTopic } = useTopic();
 
   const [sortOrder, setSortOrder] = useState("DESC");
   const [reportPostId, setReportPostId] = useState<number | null>(null); // ID del post a denunciar
   const isReportModalOpen = reportPostId !== null;
+
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const LIMIT = 10;
 
   const handleOpenReport = (postId: number) => {
     setReportPostId(postId);
@@ -145,6 +150,40 @@ export default function Feed() {
   const handleCloseReport = () => {
     setReportPostId(null);
   };
+
+  async function fetchPage(pageToLoad: number, append: boolean) {
+    // token igual que ya haces
+    const raw = localStorage.getItem("ubfitness_tokens");
+    let accessToken: string | null = null;
+    if (raw) {
+      try {
+        accessToken = JSON.parse(raw).access_token;
+      } catch {}
+    }
+
+    const headers: HeadersInit = { "Content-Type": "application/json" };
+    if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;
+
+    const res = await fetch(
+      `${API_BASE}/api/posts/?page=${pageToLoad}&limit=${LIMIT}`,
+      { headers }
+    );
+
+    if (!res.ok) throw new Error("Error cargando posts");
+
+    const payload: {
+      items: BackendPost[];
+      has_more: boolean;
+      page: number;
+    } = await res.json();
+
+    const normalized = payload.items.map(normalizePost);
+
+    setPosts((prev) => (append ? [...prev, ...normalized] : normalized));
+    setHasMore(payload.has_more);
+    setPage(payload.page);
+  }
+
 
 
   useEffect(() => {
@@ -171,14 +210,7 @@ export default function Feed() {
           headers["Authorization"] = `Bearer ${accessToken}`;
         }
 
-        // 3. Hacer el fetch con headers
-        const res = await fetch(`${API_BASE}/api/posts/`, {
-          headers,
-        });
-
-        if (!res.ok) throw new Error("Error cargando posts");
-        const data: BackendPost[] = await res.json();
-        setPosts(data.map(normalizePost));
+        await fetchPage(1, false);
       } catch (err) {
         console.error(err);
         setError("No se han podido cargar las publicaciones. Intentalo más tarde.");
@@ -424,6 +456,7 @@ export default function Feed() {
   if (visible.length === 0)
     return <p className="text-center mt-10 text-gray-500">No hi ha contingut per mostrar.</p>;
 
+
   return (
     <section className="w-full py-4 fade-in">
       <div className="mb-4 flex items-center justify-center gap-6 relative">
@@ -501,6 +534,25 @@ export default function Feed() {
           </article>
         ))}
       </div>
+
+      {hasMore && (
+        <div className="mt-6 flex justify-center">
+          <button
+            disabled={loadingMore}
+            onClick={async () => {
+              try {
+                setLoadingMore(true);
+                await fetchPage(page + 1, true);
+              } finally {
+                setLoadingMore(false);
+              }
+            }}
+            className="px-5 py-2 rounded-full bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+          >
+            {loadingMore ? "Cargando..." : "Cargar más"}
+          </button>
+        </div>
+      )}
 
       {isReportModalOpen && reportPostId !== null && (
         <ReportForm
